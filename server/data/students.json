@@ -1,0 +1,37 @@
+[
+  {
+    "id": "1",
+    "name": "Ana Clara Lima",
+    "email": "ana.clara@aluno.fiap.com.br",
+    "registrationNumber": "RM98701",
+    "course": "Análise e Desenvolvimento de Sistemas"
+  },
+  {
+    "id": "2",
+    "name": "Lucas Silva",
+    "email": "lucas.silva@aluno.fiap.com.br",
+    "registrationNumber": "RM98702",
+    "course": "Engenharia de Software"
+  },
+  {
+    "id": "3",
+    "name": "Gabriel Santos",
+    "email": "gabriel.santos@aluno.fiap.com.br",
+    "registrationNumber": "RM98703",
+    "course": "Sistemas de Informação"
+  },
+  {
+    "id": "4",
+    "name": "Beatriz Martins",
+    "email": "beatriz.martins@aluno.fiap.com.br",
+    "registrationNumber": "RM98704",
+    "course": "Inteligência Artificial"
+  },
+  {
+    "id": "5",
+    "name": "Thiago Oliveira",
+    "email": "thiago.oliveira@aluno.fiap.com.br",
+    "registrationNumber": "RM98705",
+    "course": "Ciência da Computação"
+  }
+]

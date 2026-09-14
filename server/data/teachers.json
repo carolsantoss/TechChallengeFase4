@@ -1,0 +1,37 @@
+[
+  {
+    "id": "1",
+    "name": "Carlos Eduardo",
+    "email": "carlos.eduardo@fiap.com.br",
+    "department": "Engenharia de Software",
+    "title": "Doutor"
+  },
+  {
+    "id": "2",
+    "name": "Mariana Costa",
+    "email": "mariana.costa@fiap.com.br",
+    "department": "Arquitetura de Sistemas",
+    "title": "Mestre"
+  },
+  {
+    "id": "3",
+    "name": "Roberto Alencar",
+    "email": "roberto.alencar@fiap.com.br",
+    "department": "Segurança da Informação",
+    "title": "Especialista"
+  },
+  {
+    "id": "4",
+    "name": "Patrícia Mendes",
+    "email": "patricia.mendes@fiap.com.br",
+    "department": "Inteligência Artificial",
+    "title": "Doutora"
+  },
+  {
+    "id": "5",
+    "name": "Fernando Rocha",
+    "email": "fernando.rocha@fiap.com.br",
+    "department": "Banco de Dados",
+    "title": "Mestre"
+  }
+]

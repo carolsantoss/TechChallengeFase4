@@ -1,0 +1,19 @@
+[
+  {
+    "id": "1789350009017",
+    "title": "Teste",
+    "content": "teste",
+    "author": "Carlos Eduardo",
+    "description": "teste",
+    "createdAt": "2026-09-14T01:40:09.017Z",
+    "comments": [
+      {
+        "id": "c1789350589817",
+        "author": "Ana Clara Lima",
+        "authorRole": "student",
+        "content": "oii",
+        "createdAt": "2026-09-14T01:49:49.817Z"
+      }
+    ]
+  }
+]

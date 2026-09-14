@@ -1,0 +1,23 @@
+export const colors = {
+  primary: '#4F46E5',
+  primaryDark: '#3730A3',
+  primaryLight: '#EEF2FF',
+  secondary: '#06B6D4',
+  background: '#F8FAFC',
+  card: '#FFFFFF',
+  textPrimary: '#0F172A',
+  textSecondary: '#64748B',
+  textMuted: '#94A3B8',
+  border: '#E2E8F0',
+  borderDark: '#CBD5E1',
+  danger: '#EF4444',
+  dangerLight: '#FEF2F2',
+  success: '#10B981',
+  successLight: '#ECFDF5',
+  warning: '#F59E0B',
+  warningLight: '#FFFBEB',
+  teacherBadge: '#EDE9FE',
+  teacherText: '#6D28D9',
+  studentBadge: '#E0F2FE',
+  studentText: '#0369A1'
+};
