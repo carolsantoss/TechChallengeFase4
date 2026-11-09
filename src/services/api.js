@@ -3,7 +3,8 @@ import { Platform } from 'react-native';
 
 const DEFAULT_PORT = '3000';
 const DEFAULT_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-const DEFAULT_URL = `http://${DEFAULT_HOST}:${DEFAULT_PORT}/api`;
+
+const DEFAULT_URL = `https://techchallenger.duckdns.org/api';`;
 const API_URL_KEY = '@fiap_blog_api_url';
 
 export const getBaseUrl = async () => {
