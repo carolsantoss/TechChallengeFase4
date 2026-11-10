@@ -145,27 +145,8 @@ export const EditTeacherScreen = ({ route, navigation }) => {
               />
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Departamento / Área de Ensino</Text>
-              <TextInput
-                style={styles.input}
-                value={department}
-                onChangeText={setDepartment}
-                placeholder="Departamento"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Titulação Acadêmica</Text>
-              <TextInput
-                style={styles.input}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Titulação acadêmica"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
+        
+          
 
             <TouchableOpacity
               style={[styles.submitButton, saving && styles.buttonDisabled]}

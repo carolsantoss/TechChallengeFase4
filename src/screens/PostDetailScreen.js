@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
 import { api } from '../services/api';
@@ -22,19 +24,67 @@ export const PostDetailScreen = ({ route, navigation }) => {
   const { user, isTeacher } = useAuth();
 
   const [post, setPost] = useState(null);
+  const [postAuthor, setPostAuthor] = useState('');
   const [loading, setLoading] = useState(true);
-  const [commentAuthor, setCommentAuthor] = useState(user?.name || '');
+
+  const [commentAuthor, setCommentAuthor] = useState(
+    user?.nome || user?.name || ''
+  );
+
   const [commentContent, setCommentContent] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
 
+  // CARREGAR PUBLICAÇÃO E IDENTIFICAR AUTOR
   const fetchPost = async () => {
     try {
       setLoading(true);
+
       const data = await api.getPostById(id);
+
+      console.log('Dados da publicação:', data);
+
+      let authorName =
+        data.autor?.nome ||
+        data.author ||
+        '';
+
+      // Se a publicação não retornar o nome,
+      // busca o usuário pelo userId.
+      if (!authorName && data.userId) {
+        try {
+          const authorData = await api.getUserById(data.userId);
+
+          console.log('Dados do autor:', authorData);
+
+          authorName =
+            authorData?.nome ||
+            authorData?.name ||
+            authorData?.data?.nome ||
+            authorData?.usuario?.nome ||
+            authorData?.user?.nome ||
+            '';
+
+        } catch (authorError) {
+          console.log(
+            'Erro ao buscar dados do autor:',
+            authorError
+          );
+        }
+      }
+
+      setPostAuthor(authorName || 'Autor não informado');
       setPost(data);
+
     } catch (err) {
-      Alert.alert('Erro', 'Não foi possível carregar o post.');
+      console.log('Erro ao carregar publicação:', err);
+
+      Alert.alert(
+        'Erro',
+        'Não foi possível carregar o post.'
+      );
+
       navigation.goBack();
+
     } finally {
       setLoading(false);
     }
@@ -44,22 +94,32 @@ export const PostDetailScreen = ({ route, navigation }) => {
     fetchPost();
   }, [id]);
 
+  // ATUALIZAR NOME DO USUÁRIO
   useEffect(() => {
-    if (user?.name) {
-      setCommentAuthor(user.name);
+    if (user) {
+      setCommentAuthor(user.nome || user.name || '');
     }
   }, [user]);
 
+  // ADICIONAR COMENTÁRIO
   const handleAddComment = async () => {
     if (!commentContent.trim()) {
-      Alert.alert('Atenção', 'Escreva um comentário antes de enviar.');
+      Alert.alert(
+        'Atenção',
+        'Escreva um comentário antes de enviar.'
+      );
       return;
     }
 
-    const authorToUse = commentAuthor.trim() || user?.name || 'Anônimo';
+    const authorToUse =
+      commentAuthor.trim() ||
+      user?.nome ||
+      user?.name ||
+      'Anônimo';
 
     try {
       setSubmittingComment(true);
+
       const newComment = await api.addComment(id, {
         author: authorToUse,
         content: commentContent.trim(),
@@ -68,29 +128,51 @@ export const PostDetailScreen = ({ route, navigation }) => {
 
       setPost((prev) => ({
         ...prev,
-        comments: [...(prev.comments || []), newComment]
+        comments: [
+          ...(prev.comments || []),
+          newComment
+        ]
       }));
 
       setCommentContent('');
-      Alert.alert('Sucesso', 'Comentário adicionado com sucesso!');
+
+      Alert.alert(
+        'Sucesso',
+        'Comentário adicionado com sucesso!'
+      );
+
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível enviar o comentário.');
+      console.log('Erro ao adicionar comentário:', error);
+
+      Alert.alert(
+        'Erro',
+        'Não foi possível enviar o comentário.'
+      );
+
     } finally {
       setSubmittingComment(false);
     }
   };
 
+  // CARREGAMENTO
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Carregando artigo...</Text>
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+        />
+
+        <Text style={styles.loadingText}>
+          Carregando artigo...
+        </Text>
       </View>
     );
   }
 
   if (!post) return null;
 
+  // DATA DA PUBLICAÇÃO
   const formattedDate = post.createdAt
     ? new Date(post.createdAt).toLocaleDateString('pt-BR', {
         day: '2-digit',
@@ -105,6 +187,7 @@ export const PostDetailScreen = ({ route, navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
+
         <Header
           title="Leitura de Post"
           subtitle="Artigo acadêmico"
@@ -116,49 +199,99 @@ export const PostDetailScreen = ({ route, navigation }) => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+
+          {/* CABEÇALHO DA PUBLICAÇÃO */}
           <View style={styles.articleHeader}>
+
             <View style={styles.metaRow}>
+
               <View style={styles.authorBadge}>
-                <Ionicons name="person-circle-outline" size={18} color={colors.primary} />
-                <Text style={styles.authorText}>{post.author}</Text>
+                <Ionicons
+                  name="person-circle-outline"
+                  size={18}
+                  color={colors.primary}
+                />
+
+                <Text style={styles.authorText}>
+                  {postAuthor}
+                </Text>
               </View>
+
               {formattedDate ? (
                 <View style={styles.dateBadge}>
-                  <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
-                  <Text style={styles.dateText}>{formattedDate}</Text>
+                  <Ionicons
+                    name="calendar-outline"
+                    size={14}
+                    color={colors.textMuted}
+                  />
+
+                  <Text style={styles.dateText}>
+                    {formattedDate}
+                  </Text>
                 </View>
               ) : null}
+
             </View>
 
-            <Text style={styles.title}>{post.title}</Text>
+            <Text style={styles.title}>
+              {post.title}
+            </Text>
 
+            {/* BOTÃO EDITAR PARA DOCENTES */}
             {isTeacher && (
               <View style={styles.teacherBar}>
                 <TouchableOpacity
                   style={styles.editBtn}
-                  onPress={() => navigation.navigate('EditPost', { id: post.id })}
+                  onPress={() =>
+                    navigation.navigate('EditPost', {
+                      id: post.id
+                    })
+                  }
                 >
-                  <Ionicons name="create-outline" size={16} color={colors.primary} />
-                  <Text style={styles.editBtnText}>Editar Publicação</Text>
+                  <Ionicons
+                    name="create-outline"
+                    size={16}
+                    color={colors.primary}
+                  />
+
+                  <Text style={styles.editBtnText}>
+                    Editar Publicação
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
+
           </View>
 
+          {/* CONTEÚDO DA PUBLICAÇÃO */}
           <View style={styles.bodyCard}>
-            <Text style={styles.content}>{post.content}</Text>
+            <Text style={styles.content}>
+              {post.content}
+            </Text>
           </View>
 
+          {/* SEÇÃO DE COMENTÁRIOS */}
           <View style={styles.commentsSection}>
+
             <View style={styles.commentsHeader}>
-              <Ionicons name="chatbubbles-outline" size={20} color={colors.primary} />
+              <Ionicons
+                name="chatbubbles-outline"
+                size={20}
+                color={colors.primary}
+              />
+
               <Text style={styles.commentsTitle}>
                 Comentários ({post.comments ? post.comments.length : 0})
               </Text>
             </View>
 
+            {/* FORMULÁRIO DE COMENTÁRIO */}
             <View style={styles.addCommentCard}>
-              <Text style={styles.addCommentLabel}>Deixe seu comentário</Text>
+
+              <Text style={styles.addCommentLabel}>
+                Deixe seu comentário
+              </Text>
+
               {!user && (
                 <TextInput
                   style={styles.inputAuthor}
@@ -168,6 +301,7 @@ export const PostDetailScreen = ({ route, navigation }) => {
                   onChangeText={setCommentAuthor}
                 />
               )}
+
               <TextInput
                 style={styles.inputComment}
                 placeholder="Escreva sua opinião ou dúvida sobre o artigo..."
@@ -178,95 +312,166 @@ export const PostDetailScreen = ({ route, navigation }) => {
                 numberOfLines={3}
                 textAlignVertical="top"
               />
+
               <TouchableOpacity
-                style={[styles.submitCommentBtn, submittingComment && styles.disabledBtn]}
+                style={[
+                  styles.submitCommentBtn,
+                  submittingComment && styles.disabledBtn
+                ]}
                 onPress={handleAddComment}
                 disabled={submittingComment}
               >
                 {submittingComment ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator
+                    size="small"
+                    color="#FFFFFF"
+                  />
                 ) : (
                   <>
-                    <Ionicons name="send" size={16} color="#FFFFFF" />
-                    <Text style={styles.submitCommentText}>Publicar Comentário</Text>
+                    <Ionicons
+                      name="send"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+
+                    <Text style={styles.submitCommentText}>
+                      Publicar Comentário
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
+
             </View>
 
+            {/* LISTA DE COMENTÁRIOS */}
             {post.comments && post.comments.length > 0 ? (
-              post.comments.map((comment, index) => (
-                <View key={comment.id || index} style={styles.commentItem}>
-                  <View style={styles.commentTopRow}>
-                    <View style={styles.commentUser}>
-                      <Ionicons
-                        name={comment.authorRole === 'teacher' ? 'school' : 'person-circle'}
-                        size={18}
-                        color={comment.authorRole === 'teacher' ? colors.teacherText : colors.primary}
-                      />
-                      <Text style={styles.commentAuthorName}>{comment.author}</Text>
-                      {comment.authorRole === 'teacher' && (
-                        <View style={styles.teacherTag}>
-                          <Text style={styles.teacherTagText}>Docente</Text>
-                        </View>
+
+              post.comments.map((comment, index) => {
+
+                const isCommentTeacher =
+                  comment.authorRole === 'teacher' ||
+                  comment.authorRole === 'docente';
+
+                return (
+                  <View
+                    key={comment.id || index}
+                    style={styles.commentItem}
+                  >
+
+                    <View style={styles.commentTopRow}>
+
+                      <View style={styles.commentUser}>
+
+                        <Ionicons
+                          name={
+                            isCommentTeacher
+                              ? 'school'
+                              : 'person-circle'
+                          }
+                          size={18}
+                          color={
+                            isCommentTeacher
+                              ? colors.teacherText
+                              : colors.primary
+                          }
+                        />
+
+                        <Text style={styles.commentAuthorName}>
+                          {comment.author || 'Anônimo'}
+                        </Text>
+
+                        {isCommentTeacher && (
+                          <View style={styles.teacherTag}>
+                            <Text style={styles.teacherTagText}>
+                              Docente
+                            </Text>
+                          </View>
+                        )}
+
+                      </View>
+
+                      {comment.createdAt && (
+                        <Text style={styles.commentDate}>
+                          {new Date(comment.createdAt).toLocaleDateString('pt-BR')}
+                        </Text>
                       )}
+
                     </View>
-                    {comment.createdAt && (
-                      <Text style={styles.commentDate}>
-                        {new Date(comment.createdAt).toLocaleDateString('pt-BR')}
-                      </Text>
-                    )}
+
+                    <Text style={styles.commentBody}>
+                      {comment.content}
+                    </Text>
+
                   </View>
-                  <Text style={styles.commentBody}>{comment.content}</Text>
-                </View>
-              ))
+                );
+              })
+
             ) : (
+
               <View style={styles.noCommentsContainer}>
-                <Ionicons name="chatbox-outline" size={32} color={colors.textMuted} />
+                <Ionicons
+                  name="chatbox-outline"
+                  size={32}
+                  color={colors.textMuted}
+                />
+
                 <Text style={styles.noCommentsText}>
                   Nenhum comentário ainda. Seja o primeiro a comentar!
                 </Text>
               </View>
+
             )}
+
           </View>
+
         </ScrollView>
+
       </View>
     </KeyboardAvoidingView>
   );
 };
 
+// ESTILOS
 const styles = StyleSheet.create({
+
   keyboardView: {
     flex: 1
   },
+
   container: {
     flex: 1,
     backgroundColor: colors.background
   },
+
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background
   },
+
   loadingText: {
     marginTop: 12,
     fontSize: 14,
     color: colors.textSecondary
   },
+
   scrollContent: {
     padding: 16,
     paddingBottom: 40
   },
+
   articleHeader: {
     marginBottom: 16
   },
+
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12
   },
+
   authorBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -276,20 +481,24 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 14
   },
+
   authorText: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.primaryDark
   },
+
   dateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4
   },
+
   dateText: {
     fontSize: 12,
     color: colors.textMuted
   },
+
   title: {
     fontSize: 22,
     fontWeight: '800',
@@ -297,10 +506,12 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     marginBottom: 8
   },
+
   teacherBar: {
     flexDirection: 'row',
     marginTop: 6
   },
+
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -310,11 +521,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8
   },
+
   editBtnText: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary
   },
+
   bodyCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -328,25 +541,30 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1
   },
+
   content: {
     fontSize: 15,
     lineHeight: 25,
     color: colors.textPrimary
   },
+
   commentsSection: {
     marginTop: 8
   },
+
   commentsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 14
   },
+
   commentsTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary
   },
+
   addCommentCard: {
     backgroundColor: colors.card,
     borderRadius: 14,
@@ -355,12 +573,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginBottom: 16
   },
+
   addCommentLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 10
   },
+
   inputAuthor: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -371,6 +591,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 10
   },
+
   inputComment: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -381,6 +602,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     marginBottom: 12
   },
+
   submitCommentBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -390,14 +612,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8
   },
+
   disabledBtn: {
     opacity: 0.6
   },
+
   submitCommentText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600'
   },
+
   commentItem: {
     backgroundColor: colors.card,
     borderRadius: 12,
@@ -406,49 +631,59 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginBottom: 10
   },
+
   commentTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6
   },
+
   commentUser: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6
   },
+
   commentAuthorName: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.textPrimary
   },
+
   teacherTag: {
     backgroundColor: colors.teacherBadge,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6
   },
+
   teacherTagText: {
     fontSize: 10,
     color: colors.teacherText,
     fontWeight: '600'
   },
+
   commentDate: {
     fontSize: 11,
     color: colors.textMuted
   },
+
   commentBody: {
     fontSize: 13,
     lineHeight: 19,
     color: colors.textSecondary
   },
+
   noCommentsContainer: {
     alignItems: 'center',
     paddingVertical: 24
   },
+
   noCommentsText: {
     fontSize: 13,
     color: colors.textMuted,
     marginTop: 8
   }
+
 });

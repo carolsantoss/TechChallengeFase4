@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
@@ -23,8 +23,8 @@ export const CreateStudentScreen = ({ navigation }) => {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [registrationNumber, setRegistrationNumber] = useState('');
-  const [course, setCourse] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -34,26 +34,39 @@ export const CreateStudentScreen = ({ navigation }) => {
       showFeedback('Validação', 'Por favor, informe o nome do estudante.');
       return;
     }
+
     if (!email.trim()) {
       showFeedback('Validação', 'Por favor, informe o e-mail do estudante.');
       return;
     }
 
+    if (!password.trim()) {
+      showFeedback('Validação', 'Por favor, informe a senha do estudante.');
+      return;
+    }
+
     try {
       setSubmitting(true);
+
       await api.createStudent({
-        name: name.trim(),
+        nome: name.trim(),
         email: email.trim().toLowerCase(),
-        registrationNumber: registrationNumber.trim() || 'RM' + Math.floor(10000 + Math.random() * 90000),
-        course: course.trim() || 'Engenharia de Software'
+        senha: password,
+        role: 'aluno'
       });
 
-      showFeedback('Sucesso', 'Estudante cadastrado com sucesso!', () => {
-        navigation.goBack();
-      });
+      showFeedback(
+        'Sucesso',
+        'Estudante cadastrado com sucesso!',
+        () => navigation.goBack()
+      );
     } catch (error) {
+      showFeedback(
+        'Erro',
+        error.message || 'Falha ao cadastrar estudante.'
+      );
+    } finally {
       setSubmitting(false);
-      showFeedback('Erro', error.message || 'Falha ao cadastrar estudante.');
     }
   };
 
@@ -61,9 +74,16 @@ export const CreateStudentScreen = ({ navigation }) => {
     return (
       <View style={styles.container}>
         <Header title="Novo Estudante" showBack navigation={navigation} />
+
         <View style={styles.centerContainer}>
-          <Ionicons name="lock-closed-outline" size={56} color={colors.danger} />
+          <Ionicons
+            name="lock-closed-outline"
+            size={56}
+            color={colors.danger}
+          />
+
           <Text style={styles.deniedTitle}>Acesso Restrito</Text>
+
           <Text style={styles.deniedSubtitle}>
             Apenas docentes podem cadastrar novos estudantes.
           </Text>
@@ -88,57 +108,79 @@ export const CreateStudentScreen = ({ navigation }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.card}>
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Nome Completo *</Text>
+
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
                 placeholder="Ex: Ana Clara Lima"
                 placeholderTextColor={colors.textMuted}
+                autoCapitalize="words"
               />
             </View>
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>E-mail Institucional *</Text>
+
               <TextInput
                 style={styles.input}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="Ex: ana.clara@aluno.fiap.com.br"
+                placeholder="Ex: ana@aluno.fiap.com.br"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Matrícula (RM)</Text>
-              <TextInput
-                style={styles.input}
-                value={registrationNumber}
-                onChangeText={setRegistrationNumber}
-                placeholder="Ex: RM98701 (opcional, gerado automático)"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="characters"
-              />
+              <Text style={styles.label}>Senha *</Text>
+
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Digite a senha"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={22}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Curso / Graduação</Text>
-              <TextInput
-                style={styles.input}
-                value={course}
-                onChangeText={setCourse}
-                placeholder="Ex: Análise e Desenvolvimento de Sistemas"
-                placeholderTextColor={colors.textMuted}
+            <View style={styles.roleContainer}>
+              <Ionicons
+                name="school-outline"
+                size={20}
+                color={colors.primary}
               />
+              <Text style={styles.roleText}>Tipo de usuário: Aluno</Text>
             </View>
 
             <TouchableOpacity
-              style={[styles.submitButton, submitting && styles.buttonDisabled]}
+              style={[
+                styles.submitButton,
+                submitting && styles.buttonDisabled
+              ]}
               onPress={handleSubmit}
               disabled={submitting}
             >
@@ -146,8 +188,14 @@ export const CreateStudentScreen = ({ navigation }) => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <Ionicons name="school-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>Cadastrar Estudante</Text>
+                  <Ionicons
+                    name="person-add-outline"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.submitButtonText}>
+                    Cadastrar Estudante
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -219,6 +267,39 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: colors.textPrimary
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.textPrimary
+  },
+  eyeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+    gap: 8
+  },
+  roleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary
   },
   submitButton: {
     flexDirection: 'row',

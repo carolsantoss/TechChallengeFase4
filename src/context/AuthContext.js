@@ -1,11 +1,38 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext
+} from 'react';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../services/api';
 
-const AuthContext = createContext({});
+const AuthContext = createContext(null);
 
 const USER_STORAGE_KEY = '@fiap_blog_user';
 const TOKEN_STORAGE_KEY = '@fiap_blog_token';
+
+// Padroniza os papéis utilizados pelo aplicativo e pelo backend.
+const normalizeRole = (role) => {
+  if (role === 'teacher') return 'docente';
+  if (role === 'student') return 'aluno';
+  return role;
+};
+
+// Mantém compatibilidade com telas que utilizam user.name
+// e com o backend, que retorna user.nome.
+const normalizeUser = (usuario) => {
+  const role = normalizeRole(usuario.role);
+
+  return {
+    ...usuario,
+    role,
+    name: usuario.name || usuario.nome || '',
+    nome: usuario.nome || usuario.name || ''
+  };
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -22,10 +49,16 @@ export const AuthProvider = ({ children }) => {
       const storedToken = await AsyncStorage.getItem(TOKEN_STORAGE_KEY);
 
       if (storedUser && storedToken) {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = normalizeUser(JSON.parse(storedUser));
+
+        setUser(parsedUser);
         setToken(storedToken);
       }
-    } catch (e) {
+    } catch (error) {
+      console.log('Erro ao recuperar autenticação:', error);
+
+      await AsyncStorage.removeItem(USER_STORAGE_KEY);
+      await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
     } finally {
       setLoading(false);
     }
@@ -33,33 +66,52 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password, role) => {
     try {
-      const response = await api.login(email, password, role);
-      const { user: loggedUser, token: authToken } = response;
+      // Converte teacher/student para docente/aluno antes de enviar.
+      const backendRole = normalizeRole(role);
 
-      setUser(loggedUser);
+      const response = await api.login(
+        email,
+        password,
+        backendRole
+      );
+
+      // O backend retorna { token, usuario }.
+      const authToken = response?.token;
+      const loggedUser = response?.usuario;
+
+      if (!authToken || !loggedUser) {
+        throw new Error(
+          'Resposta inválida do servidor. Token ou usuário não encontrado.'
+        );
+      }
+
+      const normalizedUser = normalizeUser(loggedUser);
+
+      // Salva os dados antes de atualizar o estado.
+      await AsyncStorage.setItem(
+        USER_STORAGE_KEY,
+        JSON.stringify(normalizedUser)
+      );
+
+      await AsyncStorage.setItem(
+        TOKEN_STORAGE_KEY,
+        authToken
+      );
+
+      setUser(normalizedUser);
       setToken(authToken);
 
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(loggedUser));
-      await AsyncStorage.setItem(TOKEN_STORAGE_KEY, authToken);
-
-      return { success: true, user: loggedUser };
-    } catch (error) {
-      const fallbackRole = role || (email.toLowerCase().includes('aluno') ? 'student' : 'teacher');
-      const fallbackUser = {
-        id: 'user-' + Date.now(),
-        name: email.split('@')[0],
-        email: email,
-        role: fallbackRole
+      return {
+        success: true,
+        user: normalizedUser
       };
-      const fallbackToken = 'offline-token-' + Date.now();
 
-      setUser(fallbackUser);
-      setToken(fallbackToken);
+    } catch (error) {
+      console.log('Erro no login:', error);
 
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(fallbackUser));
-      await AsyncStorage.setItem(TOKEN_STORAGE_KEY, fallbackToken);
-
-      return { success: true, user: fallbackUser };
+      // Não cria usuário ou token fictício.
+      // Se o servidor rejeitar o login, o aplicativo também rejeita.
+      throw error;
     }
   };
 
@@ -67,17 +119,20 @@ export const AuthProvider = ({ children }) => {
     try {
       await AsyncStorage.removeItem(USER_STORAGE_KEY);
       await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
-      setUser(null);
-      setToken(null);
-    } catch (e) {
+    } finally {
       setUser(null);
       setToken(null);
     }
   };
 
-  const isAuthenticated = !!user;
-  const isTeacher = user?.role === 'teacher';
-  const isStudent = user?.role === 'student';
+  const isAuthenticated = !!user && !!token;
+
+  const isAdmin = user?.role === 'admin';
+  const isDocente = user?.role === 'docente';
+
+  // Admin também pode acessar as funcionalidades de docente.
+  const isTeacher = isDocente || isAdmin;
+  const isStudent = user?.role === 'aluno';
 
   return (
     <AuthContext.Provider
@@ -87,7 +142,9 @@ export const AuthProvider = ({ children }) => {
         loading,
         isAuthenticated,
         isTeacher,
+        isDocente,
         isStudent,
+        isAdmin,
         login,
         logout
       }}
@@ -99,8 +156,12 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+
   if (!context) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+    throw new Error(
+      'useAuth deve ser usado dentro de um AuthProvider'
+    );
   }
+
   return context;
 };

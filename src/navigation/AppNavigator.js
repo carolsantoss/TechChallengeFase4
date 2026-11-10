@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -18,11 +19,15 @@ import { AdminPostsScreen } from '../screens/AdminPostsScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { colors } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -69,21 +74,29 @@ const MainTabs = () => {
         component={HomeScreen}
         options={{ tabBarLabel: 'Início' }}
       />
+
       <Tab.Screen
         name="AdminTab"
         component={AdminPostsScreen}
         options={{ tabBarLabel: 'Admin' }}
       />
-      <Tab.Screen
-        name="TeachersTab"
-        component={TeachersListScreen}
-        options={{ tabBarLabel: 'Docentes' }}
-      />
-      <Tab.Screen
-        name="StudentsTab"
-        component={StudentsListScreen}
-        options={{ tabBarLabel: 'Alunos' }}
-      />
+
+      {isAdmin && (
+        <Tab.Screen
+          name="TeachersTab"
+          component={TeachersListScreen}
+          options={{ tabBarLabel: 'Docentes' }}
+        />
+      )}
+
+      {isAdmin && (
+        <Tab.Screen
+          name="StudentsTab"
+          component={StudentsListScreen}
+          options={{ tabBarLabel: 'Alunos' }}
+        />
+      )}
+
       <Tab.Screen
         name="SettingsTab"
         component={SettingsScreen}

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
@@ -23,8 +23,10 @@ export const CreateTeacherScreen = ({ navigation }) => {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [department, setDepartment] = useState('');
   const [title, setTitle] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -34,26 +36,41 @@ export const CreateTeacherScreen = ({ navigation }) => {
       showFeedback('Validação', 'Por favor, informe o nome do professor.');
       return;
     }
+
     if (!email.trim()) {
       showFeedback('Validação', 'Por favor, informe o e-mail do professor.');
       return;
     }
 
+    if (!password.trim()) {
+      showFeedback('Validação', 'Por favor, informe uma senha.');
+      return;
+    }
+
     try {
       setSubmitting(true);
+
+      // Somente os campos aceitos pelo backend são enviados.
+      // Departamento e titulação ficam apenas na tela.
       await api.createTeacher({
-        name: name.trim(),
+        nome: name.trim(),
         email: email.trim().toLowerCase(),
-        department: department.trim() || 'Engenharia de Software',
-        title: title.trim() || 'Professor'
+        senha: password,
+        role: 'docente'
       });
 
-      showFeedback('Sucesso', 'Professor cadastrado com sucesso!', () => {
-        navigation.goBack();
-      });
+      showFeedback(
+        'Sucesso',
+        'Professor cadastrado com sucesso!',
+        () => navigation.goBack()
+      );
     } catch (error) {
+      showFeedback(
+        'Erro',
+        error.message || 'Falha ao cadastrar professor.'
+      );
+    } finally {
       setSubmitting(false);
-      showFeedback('Erro', error.message || 'Falha ao cadastrar professor.');
     }
   };
 
@@ -61,8 +78,13 @@ export const CreateTeacherScreen = ({ navigation }) => {
     return (
       <View style={styles.container}>
         <Header title="Novo Docente" showBack navigation={navigation} />
+
         <View style={styles.centerContainer}>
-          <Ionicons name="lock-closed-outline" size={56} color={colors.danger} />
+          <Ionicons
+            name="lock-closed-outline"
+            size={56}
+            color={colors.danger}
+          />
           <Text style={styles.deniedTitle}>Acesso Restrito</Text>
           <Text style={styles.deniedSubtitle}>
             Apenas docentes podem cadastrar novos professores.
@@ -88,6 +110,7 @@ export const CreateTeacherScreen = ({ navigation }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.card}>
             <View style={styles.fieldGroup}>
@@ -98,6 +121,7 @@ export const CreateTeacherScreen = ({ navigation }) => {
                 onChangeText={setName}
                 placeholder="Ex: Carlos Eduardo Silveira"
                 placeholderTextColor={colors.textMuted}
+                autoCapitalize="words"
               />
             </View>
 
@@ -115,29 +139,37 @@ export const CreateTeacherScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Departamento / Área de Ensino</Text>
-              <TextInput
-                style={styles.input}
-                value={department}
-                onChangeText={setDepartment}
-                placeholder="Ex: Engenharia de Software, IA, Mobile"
-                placeholderTextColor={colors.textMuted}
-              />
+              <Text style={styles.label}>Senha *</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Digite uma senha"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={22}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Titulação Acadêmica</Text>
-              <TextInput
-                style={styles.input}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Ex: Doutor, Mestre, Especialista"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
 
             <TouchableOpacity
-              style={[styles.submitButton, submitting && styles.buttonDisabled]}
+              style={[
+                styles.submitButton,
+                submitting && styles.buttonDisabled
+              ]}
               onPress={handleSubmit}
               disabled={submitting}
             >
@@ -145,8 +177,14 @@ export const CreateTeacherScreen = ({ navigation }) => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <Ionicons name="person-add-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>Cadastrar Professor</Text>
+                  <Ionicons
+                    name="person-add-outline"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.submitButtonText}>
+                    Cadastrar Professor
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -218,6 +256,25 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: colors.textPrimary
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.textPrimary
+  },
+  eyeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10
   },
   submitButton: {
     flexDirection: 'row',

@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -9,8 +10,16 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// ==========================================
+// ARQUIVOS E PERSISTÊNCIA
+// ==========================================
+
 const DATA_DIR = path.join(__dirname, 'data');
+
 const POSTS_FILE = path.join(DATA_DIR, 'posts.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+
+// Arquivos antigos, usados somente na migração inicial
 const TEACHERS_FILE = path.join(DATA_DIR, 'teachers.json');
 const STUDENTS_FILE = path.join(DATA_DIR, 'students.json');
 
@@ -20,213 +29,441 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const loadData = (filePath) => {
   try {
-    if (fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, 'utf-8');
-      return JSON.parse(raw);
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify([], null, 2), 'utf-8');
+      return [];
     }
-    fs.writeFileSync(filePath, JSON.stringify([], null, 2), 'utf-8');
-    return [];
-  } catch (e) {
+
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const data = JSON.parse(raw);
+
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error(`Erro ao carregar ${filePath}:`, error);
     return [];
   }
 };
 
 const saveData = (filePath, data) => {
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (e) {}
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify(data, null, 2),
+      'utf-8'
+    );
+
+    return true;
+  } catch (error) {
+    console.error(`Erro ao salvar ${filePath}:`, error);
+    return false;
+  }
 };
 
+// ==========================================
+// CARREGAMENTO DOS DADOS
+// ==========================================
+
 let posts = loadData(POSTS_FILE);
-let teachers = loadData(TEACHERS_FILE);
-let students = loadData(STUDENTS_FILE);
+let users = [];
 
-app.post('/api/auth/login', (req, res) => {
-  const { email, password, role } = req.body;
+// Migra os dados antigos somente se users.json ainda não existir
+if (fs.existsSync(USERS_FILE)) {
+  users = loadData(USERS_FILE);
+} else {
+  const oldTeachers = loadData(TEACHERS_FILE);
+  const oldStudents = loadData(STUDENTS_FILE);
 
-  if (!email) {
-    return res.status(400).json({ message: 'E-mail é obrigatório' });
-  }
+  const teachers = oldTeachers.map(teacher => ({
+    ...teacher,
+    role: 'docente'
+  }));
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const selectedRole = role || (normalizedEmail.includes('aluno') ? 'student' : 'teacher');
-  const extractedName = email.split('@')[0].replace(/[._-]/g, ' ');
-  const formattedName = extractedName.charAt(0).toUpperCase() + extractedName.slice(1);
+  const students = oldStudents.map(student => ({
+    ...student,
+    role: 'aluno'
+  }));
 
-  if (selectedRole === 'teacher') {
-    let teacher = teachers.find(t => t.email.toLowerCase() === normalizedEmail);
-    if (!teacher) {
-      teacher = {
-        id: String(Date.now()),
-        name: formattedName,
-        email: normalizedEmail,
-        department: 'Docência',
-        title: 'Professor(a)'
-      };
-      teachers.push(teacher);
-      saveData(TEACHERS_FILE, teachers);
-    }
+  users = [...teachers, ...students];
 
-    return res.json({
-      token: 'jwt-teacher-token-' + Date.now(),
-      user: {
-        id: teacher.id,
-        name: teacher.name,
-        email: teacher.email,
-        role: 'teacher'
-      }
+  saveData(USERS_FILE, users);
+
+  console.log('Migração inicial de usuários concluída.');
+}
+
+const VALID_ROLES = ['docente', 'aluno', 'admin'];
+
+const normalizeEmail = (email) => {
+  return String(email || '').trim().toLowerCase();
+};
+
+const normalizeRole = (role) => {
+  if (role === 'teacher') return 'docente';
+  if (role === 'student') return 'aluno';
+
+  return role;
+};
+
+const generateId = () => {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+};
+
+// ==========================================
+// LOGIN
+// ==========================================
+
+app.post('/login', (req, res) => {
+  const { email, role } = req.body;
+
+  if (!email || !String(email).trim()) {
+    return res.status(400).json({
+      message: 'E-mail é obrigatório'
     });
   }
 
-  let student = students.find(s => s.email.toLowerCase() === normalizedEmail);
-  if (!student) {
-    student = {
-      id: String(Date.now()),
+  const normalizedEmail = normalizeEmail(email);
+
+  let user = users.find(
+    item => normalizeEmail(item.email) === normalizedEmail
+  );
+
+  // Mantém a criação automática usada no login atual
+  if (!user) {
+    let selectedRole = normalizeRole(role);
+
+    if (!selectedRole) {
+      selectedRole = normalizedEmail.includes('aluno')
+        ? 'aluno'
+        : 'docente';
+    }
+
+    // Não permite criar administrador pelo login automático
+    if (!['docente', 'aluno'].includes(selectedRole)) {
+      return res.status(400).json({
+        message: 'Tipo de usuário inválido para login'
+      });
+    }
+
+    const extractedName = normalizedEmail
+      .split('@')[0]
+      .replace(/[._-]/g, ' ');
+
+    const formattedName =
+      extractedName.charAt(0).toUpperCase() +
+      extractedName.slice(1);
+
+    user = {
+      id: generateId(),
       name: formattedName,
       email: normalizedEmail,
-      registrationNumber: 'RM' + Math.floor(10000 + Math.random() * 90000),
-      course: 'Graduação'
+      role: selectedRole
     };
-    students.push(student);
-    saveData(STUDENTS_FILE, students);
+
+    if (selectedRole === 'docente') {
+      user.department = 'Docência';
+      user.title = 'Professor(a)';
+    }
+
+    if (selectedRole === 'aluno') {
+      user.registrationNumber =
+        'RM' + Math.floor(10000 + Math.random() * 90000);
+
+      user.course = 'Graduação';
+    }
+
+    users.push(user);
+    saveData(USERS_FILE, users);
   }
 
-  return res.json({
-    token: 'jwt-student-token-' + Date.now(),
+  res.json({
+    token: 'demo-token-' + Date.now(),
     user: {
-      id: student.id,
-      name: student.name,
-      email: student.email,
-      role: 'student'
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role
     }
   });
 });
 
-app.get('/api/posts', (req, res) => {
-  const { search } = req.query;
+// ==========================================
+// POSTS - LISTAR E PESQUISAR
+// ==========================================
+
+// GET /posts
+// GET /posts?search=palavra
+app.get('/posts', (req, res) => {
+  const search = String(req.query.search || '').toLowerCase();
+
   let filtered = [...posts];
 
   if (search) {
-    const term = search.toLowerCase();
-    filtered = filtered.filter(p =>
-      (p.title && p.title.toLowerCase().includes(term)) ||
-      (p.description && p.description.toLowerCase().includes(term)) ||
-      (p.author && p.author.toLowerCase().includes(term)) ||
-      (p.content && p.content.toLowerCase().includes(term))
+    filtered = filtered.filter(post =>
+      (post.title || '').toLowerCase().includes(search) ||
+      (post.description || '').toLowerCase().includes(search) ||
+      (post.author || '').toLowerCase().includes(search) ||
+      (post.content || '').toLowerCase().includes(search)
     );
   }
 
   res.json(filtered);
 });
 
-app.get('/api/posts/:id', (req, res) => {
-  const post = posts.find(p => p.id === req.params.id);
-  if (!post) {
-    return res.status(404).json({ message: 'Post não encontrado' });
+// GET /posts/search?q=palavra
+// Esta rota deve ficar antes de /posts/:id
+app.get('/posts/search', (req, res) => {
+  const search = String(
+    req.query.q || req.query.search || ''
+  ).toLowerCase();
+
+  if (!search.trim()) {
+    return res.status(400).json({
+      message: 'Informe uma palavra para pesquisar'
+    });
   }
+
+  const filtered = posts.filter(post =>
+    (post.title || '').toLowerCase().includes(search) ||
+    (post.description || '').toLowerCase().includes(search) ||
+    (post.author || '').toLowerCase().includes(search) ||
+    (post.content || '').toLowerCase().includes(search)
+  );
+
+  res.json(filtered);
+});
+
+// ==========================================
+// POSTS - CONSULTAR POR ID
+// ==========================================
+
+app.get('/posts/:id', (req, res) => {
+  const post = posts.find(
+    item => item.id === req.params.id
+  );
+
+  if (!post) {
+    return res.status(404).json({
+      message: 'Post não encontrado'
+    });
+  }
+
   res.json(post);
 });
 
-app.post('/api/posts', (req, res) => {
+// ==========================================
+// POSTS - CRIAR
+// ==========================================
+
+app.post('/posts', (req, res) => {
   const { title, content, author, description } = req.body;
 
   if (!title || !content || !author) {
-    return res.status(400).json({ message: 'Título, conteúdo e autor são obrigatórios' });
+    return res.status(400).json({
+      message: 'Título, conteúdo e autor são obrigatórios'
+    });
   }
 
   const newPost = {
-    id: String(Date.now()),
+    id: generateId(),
     title,
     content,
     author,
-    description: description || content.substring(0, 100) + '...',
+    description:
+      description || content.substring(0, 100) + '...',
     createdAt: new Date().toISOString(),
     comments: []
   };
 
   posts.unshift(newPost);
-  saveData(POSTS_FILE, posts);
+
+  if (!saveData(POSTS_FILE, posts)) {
+    posts.shift();
+
+    return res.status(500).json({
+      message: 'Erro ao salvar postagem'
+    });
+  }
+
   res.status(201).json(newPost);
 });
 
-app.put('/api/posts/:id', (req, res) => {
-  const index = posts.findIndex(p => p.id === req.params.id);
+// ==========================================
+// POSTS - EDITAR
+// ==========================================
+
+app.put('/posts/:id', (req, res) => {
+  const index = posts.findIndex(
+    item => item.id === req.params.id
+  );
+
   if (index === -1) {
-    return res.status(404).json({ message: 'Post não encontrado' });
+    return res.status(404).json({
+      message: 'Post não encontrado'
+    });
   }
 
   const { title, content, author, description } = req.body;
 
-  posts[index] = {
+  const updatedPost = {
     ...posts[index],
-    title: title || posts[index].title,
-    content: content || posts[index].content,
-    author: author || posts[index].author,
-    description: description || posts[index].description
+    title: title ?? posts[index].title,
+    content: content ?? posts[index].content,
+    author: author ?? posts[index].author,
+    description: description ?? posts[index].description
   };
 
-  saveData(POSTS_FILE, posts);
-  res.json(posts[index]);
-});
+  posts[index] = updatedPost;
 
-app.delete('/api/posts/:id', (req, res) => {
-  const index = posts.findIndex(p => p.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ message: 'Post não encontrado' });
+  if (!saveData(POSTS_FILE, posts)) {
+    return res.status(500).json({
+      message: 'Erro ao salvar alteração da postagem'
+    });
   }
 
-  const deleted = posts.splice(index, 1);
-  saveData(POSTS_FILE, posts);
-  res.json({ message: 'Post excluído com sucesso', post: deleted[0] });
+  res.json(updatedPost);
 });
 
-app.post('/api/posts/:id/comments', (req, res) => {
-  const post = posts.find(p => p.id === req.params.id);
+// ==========================================
+// POSTS - EXCLUIR
+// ==========================================
+
+app.delete('/posts/:id', (req, res) => {
+  const index = posts.findIndex(
+    item => item.id === req.params.id
+  );
+
+  if (index === -1) {
+    return res.status(404).json({
+      message: 'Post não encontrado'
+    });
+  }
+
+  const deleted = posts.splice(index, 1)[0];
+
+  if (!saveData(POSTS_FILE, posts)) {
+    posts.splice(index, 0, deleted);
+
+    return res.status(500).json({
+      message: 'Erro ao excluir postagem'
+    });
+  }
+
+  res.json({
+    message: 'Post excluído com sucesso',
+    post: deleted
+  });
+});
+
+// ==========================================
+// COMENTÁRIOS DOS POSTS
+// ==========================================
+
+app.post('/posts/:id/comments', (req, res) => {
+  const post = posts.find(
+    item => item.id === req.params.id
+  );
+
   if (!post) {
-    return res.status(404).json({ message: 'Post não encontrado' });
+    return res.status(404).json({
+      message: 'Post não encontrado'
+    });
   }
 
   const { author, content, authorRole } = req.body;
+
   if (!author || !content) {
-    return res.status(400).json({ message: 'Autor e conteúdo são obrigatórios' });
+    return res.status(400).json({
+      message: 'Autor e conteúdo são obrigatórios'
+    });
   }
 
+  const normalizedAuthorRole = normalizeRole(authorRole);
+
   const newComment = {
-    id: 'c' + Date.now(),
+    id: 'c' + generateId(),
     author,
-    authorRole: authorRole || 'student',
+    authorRole: VALID_ROLES.includes(normalizedAuthorRole)
+      ? normalizedAuthorRole
+      : 'aluno',
     content,
     createdAt: new Date().toISOString()
   };
 
-  if (!post.comments) {
+  if (!Array.isArray(post.comments)) {
     post.comments = [];
   }
 
   post.comments.push(newComment);
-  saveData(POSTS_FILE, posts);
+
+  if (!saveData(POSTS_FILE, posts)) {
+    post.comments.pop();
+
+    return res.status(500).json({
+      message: 'Erro ao salvar comentário'
+    });
+  }
+
   res.status(201).json(newComment);
 });
 
-app.get('/api/teachers', (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 4;
-  const search = req.query.search || '';
+// ==========================================
+// USERS - LISTAR
+// ==========================================
 
-  let filtered = [...teachers];
+// GET /users
+// GET /users?role=docente
+// GET /users?role=aluno
+// GET /users?role=admin
+// GET /users?search=nome&page=1&limit=4
+
+app.get('/users', (req, res) => {
+  const page = Math.max(
+    1,
+    parseInt(req.query.page, 10) || 1
+  );
+
+  const limit = Math.max(
+    1,
+    Math.min(100, parseInt(req.query.limit, 10) || 4)
+  );
+
+  const search = String(req.query.search || '').toLowerCase();
+  const role = req.query.role
+    ? normalizeRole(req.query.role)
+    : '';
+
+  let filtered = [...users];
+
+  if (role) {
+    if (!VALID_ROLES.includes(role)) {
+      return res.status(400).json({
+        message: 'Tipo de usuário inválido'
+      });
+    }
+
+    filtered = filtered.filter(
+      user => user.role === role
+    );
+  }
+
   if (search) {
-    const term = search.toLowerCase();
-    filtered = filtered.filter(t =>
-      (t.name && t.name.toLowerCase().includes(term)) ||
-      (t.email && t.email.toLowerCase().includes(term)) ||
-      (t.department && t.department.toLowerCase().includes(term))
+    filtered = filtered.filter(user =>
+      (user.name || '').toLowerCase().includes(search) ||
+      (user.email || '').toLowerCase().includes(search) ||
+      (user.department || '').toLowerCase().includes(search) ||
+      (user.title || '').toLowerCase().includes(search) ||
+      (user.course || '').toLowerCase().includes(search) ||
+      (user.registrationNumber || '').toLowerCase().includes(search)
     );
   }
 
   const total = filtered.length;
   const totalPages = Math.ceil(total / limit) || 1;
   const startIndex = (page - 1) * limit;
-  const data = filtered.slice(startIndex, startIndex + limit);
+
+  const data = filtered.slice(
+    startIndex,
+    startIndex + limit
+  );
 
   res.json({
     data,
@@ -237,152 +474,251 @@ app.get('/api/teachers', (req, res) => {
   });
 });
 
-app.get('/api/teachers/:id', (req, res) => {
-  const teacher = teachers.find(t => t.id === req.params.id);
-  if (!teacher) {
-    return res.status(404).json({ message: 'Professor não encontrado' });
+// ==========================================
+// USERS - CONSULTAR POR ID
+// ==========================================
+
+app.get('/users/:id', (req, res) => {
+  const user = users.find(
+    item => item.id === req.params.id
+  );
+
+  if (!user) {
+    return res.status(404).json({
+      message: 'Usuário não encontrado'
+    });
   }
-  res.json(teacher);
+
+  res.json(user);
 });
 
-app.post('/api/teachers', (req, res) => {
-  const { name, email, department, title } = req.body;
-  if (!name || !email) {
-    return res.status(400).json({ message: 'Nome e e-mail são obrigatórios' });
-  }
+// ==========================================
+// USERS - CADASTRAR
+// ==========================================
 
-  const newTeacher = {
-    id: String(Date.now()),
+app.post('/users', (req, res) => {
+  const {
     name,
     email,
-    department: department || 'Geral',
-    title: title || 'Professor'
+    role,
+    department,
+    title,
+    registrationNumber,
+    course
+  } = req.body;
+
+  if (!name || !email || !role) {
+    return res.status(400).json({
+      message: 'Nome, e-mail e tipo de usuário são obrigatórios'
+    });
+  }
+
+  const normalizedRole = normalizeRole(role);
+
+  if (!VALID_ROLES.includes(normalizedRole)) {
+    return res.status(400).json({
+      message: 'Tipo de usuário inválido'
+    });
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+
+  if (users.some(
+    user => normalizeEmail(user.email) === normalizedEmail
+  )) {
+    return res.status(409).json({
+      message: 'Já existe um usuário com esse e-mail'
+    });
+  }
+
+  const newUser = {
+    id: generateId(),
+    name: String(name).trim(),
+    email: normalizedEmail,
+    role: normalizedRole
   };
 
-  teachers.push(newTeacher);
-  saveData(TEACHERS_FILE, teachers);
-  res.status(201).json(newTeacher);
-});
-
-app.put('/api/teachers/:id', (req, res) => {
-  const index = teachers.findIndex(t => t.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ message: 'Professor não encontrado' });
+  if (normalizedRole === 'docente') {
+    newUser.department = department || 'Geral';
+    newUser.title = title || 'Professor(a)';
   }
 
-  const { name, email, department, title } = req.body;
+  if (normalizedRole === 'aluno') {
+    newUser.registrationNumber =
+      registrationNumber ||
+      'RM' + Math.floor(10000 + Math.random() * 90000);
 
-  teachers[index] = {
-    ...teachers[index],
-    name: name || teachers[index].name,
-    email: email || teachers[index].email,
-    department: department !== undefined ? department : teachers[index].department,
-    title: title !== undefined ? title : teachers[index].title
+    newUser.course = course || 'Tecnologia';
+  }
+
+  users.push(newUser);
+
+  if (!saveData(USERS_FILE, users)) {
+    users.pop();
+
+    return res.status(500).json({
+      message: 'Erro ao salvar usuário'
+    });
+  }
+
+  res.status(201).json(newUser);
+});
+
+// ==========================================
+// USERS - EDITAR
+// ==========================================
+
+app.put('/users/:id', (req, res) => {
+  const index = users.findIndex(
+    item => item.id === req.params.id
+  );
+
+  if (index === -1) {
+    return res.status(404).json({
+      message: 'Usuário não encontrado'
+    });
+  }
+
+  const {
+    name,
+    email,
+    role,
+    department,
+    title,
+    registrationNumber,
+    course
+  } = req.body;
+
+  const normalizedRole = role
+    ? normalizeRole(role)
+    : users[index].role;
+
+  if (!VALID_ROLES.includes(normalizedRole)) {
+    return res.status(400).json({
+      message: 'Tipo de usuário inválido'
+    });
+  }
+
+  const normalizedEmail = email
+    ? normalizeEmail(email)
+    : users[index].email;
+
+  const emailAlreadyUsed = users.some(
+    (user, userIndex) =>
+      userIndex !== index &&
+      normalizeEmail(user.email) === normalizedEmail
+  );
+
+  if (emailAlreadyUsed) {
+    return res.status(409).json({
+      message: 'Esse e-mail já pertence a outro usuário'
+    });
+  }
+
+  const updatedUser = {
+    ...users[index],
+    name: name !== undefined ? String(name).trim() : users[index].name,
+    email: normalizedEmail,
+    role: normalizedRole
   };
 
-  saveData(TEACHERS_FILE, teachers);
-  res.json(teachers[index]);
+  if (normalizedRole === 'docente') {
+    updatedUser.department =
+      department ?? users[index].department ?? 'Geral';
+
+    updatedUser.title =
+      title ?? users[index].title ?? 'Professor(a)';
+
+    delete updatedUser.registrationNumber;
+    delete updatedUser.course;
+  }
+
+  if (normalizedRole === 'aluno') {
+    updatedUser.registrationNumber =
+      registrationNumber ??
+      users[index].registrationNumber ??
+      ('RM' + Math.floor(10000 + Math.random() * 90000));
+
+    updatedUser.course =
+      course ?? users[index].course ?? 'Tecnologia';
+
+    delete updatedUser.department;
+    delete updatedUser.title;
+  }
+
+  if (normalizedRole === 'admin') {
+    delete updatedUser.department;
+    delete updatedUser.title;
+    delete updatedUser.registrationNumber;
+    delete updatedUser.course;
+  }
+
+  const previousUser = users[index];
+  users[index] = updatedUser;
+
+  if (!saveData(USERS_FILE, users)) {
+    users[index] = previousUser;
+
+    return res.status(500).json({
+      message: 'Erro ao salvar alteração do usuário'
+    });
+  }
+
+  res.json(updatedUser);
 });
 
-app.delete('/api/teachers/:id', (req, res) => {
-  const index = teachers.findIndex(t => t.id === req.params.id);
+// ==========================================
+// USERS - EXCLUIR
+// ==========================================
+
+app.delete('/users/:id', (req, res) => {
+  const index = users.findIndex(
+    item => item.id === req.params.id
+  );
+
   if (index === -1) {
-    return res.status(404).json({ message: 'Professor não encontrado' });
+    return res.status(404).json({
+      message: 'Usuário não encontrado'
+    });
   }
 
-  const deleted = teachers.splice(index, 1);
-  saveData(TEACHERS_FILE, teachers);
-  res.json({ message: 'Professor excluído com sucesso', teacher: deleted[0] });
-});
+  const deleted = users.splice(index, 1)[0];
 
-app.get('/api/students', (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 4;
-  const search = req.query.search || '';
+  if (!saveData(USERS_FILE, users)) {
+    users.splice(index, 0, deleted);
 
-  let filtered = [...students];
-  if (search) {
-    const term = search.toLowerCase();
-    filtered = filtered.filter(s =>
-      (s.name && s.name.toLowerCase().includes(term)) ||
-      (s.email && s.email.toLowerCase().includes(term)) ||
-      (s.registrationNumber && s.registrationNumber.toLowerCase().includes(term)) ||
-      (s.course && s.course.toLowerCase().includes(term))
-    );
+    return res.status(500).json({
+      message: 'Erro ao excluir usuário'
+    });
   }
-
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / limit) || 1;
-  const startIndex = (page - 1) * limit;
-  const data = filtered.slice(startIndex, startIndex + limit);
 
   res.json({
-    data,
-    total,
-    page,
-    limit,
-    totalPages
+    message: 'Usuário excluído com sucesso',
+    user: deleted
   });
 });
 
-app.get('/api/students/:id', (req, res) => {
-  const student = students.find(s => s.id === req.params.id);
-  if (!student) {
-    return res.status(404).json({ message: 'Estudante não encontrado' });
-  }
-  res.json(student);
+// ==========================================
+// ROTA INICIAL
+// ==========================================
+
+app.get('/', (req, res) => {
+  res.json({
+    message: 'TechChallenge Fase 4 - API funcionando',
+    endpoints: {
+      login: '/login',
+      posts: '/posts',
+      users: '/users'
+    }
+  });
 });
 
-app.post('/api/students', (req, res) => {
-  const { name, email, registrationNumber, course } = req.body;
-  if (!name || !email) {
-    return res.status(400).json({ message: 'Nome e e-mail são obrigatórios' });
-  }
+// ==========================================
+// INICIALIZAÇÃO DO SERVIDOR
+// ==========================================
 
-  const newStudent = {
-    id: String(Date.now()),
-    name,
-    email,
-    registrationNumber: registrationNumber || 'RM' + Math.floor(10000 + Math.random() * 90000),
-    course: course || 'Tecnologia'
-  };
-
-  students.push(newStudent);
-  saveData(STUDENTS_FILE, students);
-  res.status(201).json(newStudent);
-});
-
-app.put('/api/students/:id', (req, res) => {
-  const index = students.findIndex(s => s.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ message: 'Estudante não encontrado' });
-  }
-
-  const { name, email, registrationNumber, course } = req.body;
-
-  students[index] = {
-    ...students[index],
-    name: name || students[index].name,
-    email: email || students[index].email,
-    registrationNumber: registrationNumber !== undefined ? registrationNumber : students[index].registrationNumber,
-    course: course !== undefined ? course : students[index].course
-  };
-
-  saveData(STUDENTS_FILE, students);
-  res.json(students[index]);
-});
-
-app.delete('/api/students/:id', (req, res) => {
-  const index = students.findIndex(s => s.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ message: 'Estudante não encontrado' });
-  }
-
-  const deleted = students.splice(index, 1);
-  saveData(STUDENTS_FILE, students);
-  res.json({ message: 'Estudante excluído com sucesso', student: deleted[0] });
-});
-
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend REST API rodando na porta ${PORT}`);
+  console.log(`Usuários cadastrados: ${users.length}`);
+  console.log(`Posts cadastrados: ${posts.length}`);
 });

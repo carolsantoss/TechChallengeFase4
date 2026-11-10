@@ -145,29 +145,6 @@ export const EditStudentScreen = ({ route, navigation }) => {
               />
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Matrícula (RM)</Text>
-              <TextInput
-                style={styles.input}
-                value={registrationNumber}
-                onChangeText={setRegistrationNumber}
-                placeholder="Matrícula"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="characters"
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Curso / Graduação</Text>
-              <TextInput
-                style={styles.input}
-                value={course}
-                onChangeText={setCourse}
-                placeholder="Curso"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
-
             <TouchableOpacity
               style={[styles.submitButton, saving && styles.buttonDisabled]}
               onPress={handleSave}

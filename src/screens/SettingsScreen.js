@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,125 +8,275 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  ScrollView,
-  Platform
+  ScrollView
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
-import { getBaseUrl, setBaseUrl, resetBaseUrl } from '../services/api';
+
+import {
+  getBaseUrl,
+  setBaseUrl,
+  resetBaseUrl,
+  api
+} from '../services/api';
+
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
 export const SettingsScreen = ({ navigation }) => {
+  const { user } = useAuth();
+
+  // Configuração da API
   const [currentUrl, setCurrentUrl] = useState('');
   const [inputUrl, setInputUrl] = useState('');
   const [testing, setTesting] = useState(false);
   const [status, setStatus] = useState(null);
 
+  // Alteração de senha
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+
   useEffect(() => {
     loadUrl();
   }, []);
 
+  // Carregar URL salva
   const loadUrl = async () => {
     const url = await getBaseUrl();
     setCurrentUrl(url);
     setInputUrl(url);
   };
 
+  // Salvar URL da API
   const handleSaveUrl = async () => {
     if (!inputUrl.trim()) {
       Alert.alert('Atenção', 'Informe uma URL válida.');
       return;
     }
 
-    const saved = await setBaseUrl(inputUrl.trim());
-    setCurrentUrl(saved);
-    setInputUrl(saved);
-    Alert.alert('Sucesso', `URL base atualizada para:\n${saved}`);
+    try {
+      const savedUrl = await setBaseUrl(inputUrl);
+
+      setCurrentUrl(savedUrl);
+      setInputUrl(savedUrl);
+      setStatus(null);
+
+      Alert.alert('Sucesso', 'URL da API salva com sucesso.');
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível salvar a URL.');
+    }
   };
 
+  // Restaurar URL padrão
   const handleResetUrl = async () => {
-    const reset = await resetBaseUrl();
-    setCurrentUrl(reset);
-    setInputUrl(reset);
-    Alert.alert('Restaurado', 'URL base redefinida para o padrão.');
+    Alert.alert(
+      'Restaurar URL',
+      'Deseja restaurar a URL padrão da API?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Restaurar',
+          onPress: async () => {
+            const url = await resetBaseUrl();
+
+            setCurrentUrl(url);
+            setInputUrl(url);
+            setStatus(null);
+          }
+        }
+      ]
+    );
   };
 
+  // Testar comunicação com o servidor
   const handleTestConnection = async () => {
     try {
       setTesting(true);
       setStatus(null);
-      const urlToTest = inputUrl.trim().replace(/\/+$/, '');
-      const finalTestUrl = urlToTest.endsWith('/api') ? urlToTest : `${urlToTest}/api`;
 
-      const response = await fetch(`${finalTestUrl}/posts`, { method: 'GET' });
-      if (response.ok) {
-        setStatus({ ok: true, message: 'Conexão com a API estabelecida com sucesso!' });
-      } else {
-        setStatus({ ok: false, message: `Servidor respondeu com status HTTP ${response.status}` });
+      const baseUrl = await getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/posts`);
+
+      if (!response.ok) {
+        throw new Error(`Erro HTTP ${response.status}`);
       }
-    } catch (err) {
+
       setStatus({
-        ok: false,
-        message: 'Não foi possível conectar ao servidor. Certifique-se de que o backend está em execução.'
+        success: true,
+        message: 'Comunicação com o servidor realizada com sucesso.'
       });
+
+    } catch (error) {
+      setStatus({
+        success: false,
+        message: error.message || 'Não foi possível conectar ao servidor.'
+      });
+
     } finally {
       setTesting(false);
     }
   };
 
+  // Alterar senha
+  const handleChangePassword = async () => {
+    if (!newPassword.trim() || !confirmPassword.trim()) {
+      Alert.alert(
+        'Atenção',
+        'Preencha os dois campos de senha.'
+      );
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert(
+        'Atenção',
+        'A nova senha deve ter pelo menos 6 caracteres.'
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert(
+        'Atenção',
+        'A nova senha e a confirmação não coincidem.'
+      );
+      return;
+    }
+
+    const userId = user?.id || user?._id;
+
+    if (!userId) {
+      Alert.alert(
+        'Erro',
+        'Não foi possível identificar o usuário logado.'
+      );
+      return;
+    }
+
+    try {
+      setChangingPassword(true);
+
+      await api.updateUser(userId, {
+        senha: newPassword
+      });
+
+      Alert.alert(
+        'Sucesso',
+        'Solicitação de alteração de senha enviada ao servidor.'
+      );
+
+      setNewPassword('');
+      setConfirmPassword('');
+
+    } catch (error) {
+      Alert.alert(
+        'Erro',
+        error.message || 'Não foi possível alterar a senha.'
+      );
+
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Header title="Configurações" subtitle="Conexão com Back-End REST" navigation={navigation} />
+      <Header />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Configurações</Text>
+
+        {/* CONFIGURAÇÃO DA API */}
         <View style={styles.card}>
-          <View style={styles.iconRow}>
-            <Ionicons name="server-outline" size={28} color={colors.primary} />
-            <Text style={styles.cardTitle}>Parâmetros da API REST</Text>
+          <View style={styles.cardHeader}>
+            <Ionicons
+              name="server-outline"
+              size={23}
+              color={colors.primary}
+            />
+
+            <Text style={styles.cardTitle}>
+              Parâmetros da API
+            </Text>
           </View>
-          <Text style={styles.description}>
-            Configure a URL base dos endpoints REST do back-end em Node.js para comunicação via HTTP.
+
+          <Text style={styles.label}>
+            URL atual da API
           </Text>
 
-          <Text style={styles.label}>URL Base Atual:</Text>
-          <View style={styles.urlBadge}>
-            <Text style={styles.urlText}>{currentUrl}</Text>
-          </View>
+          <Text style={styles.currentUrl}>
+            {currentUrl || 'Carregando...'}
+          </Text>
 
-          <Text style={[styles.label, { marginTop: 14 }]}>Alterar URL da API:</Text>
+          <Text style={styles.label}>
+            Nova URL
+          </Text>
+
           <TextInput
             style={styles.input}
             value={inputUrl}
             onChangeText={setInputUrl}
-            placeholder="http://localhost:3000/api"
-            placeholderTextColor={colors.textMuted}
+            placeholder="https://seu-servidor.com"
             autoCapitalize="none"
-            autoCorrect={false}
+            keyboardType="url"
           />
 
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveUrl}>
-              <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.saveBtnText}>Salvar</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleSaveUrl}
+          >
+            <Ionicons
+              name="save-outline"
+              size={18}
+              color="#FFFFFF"
+            />
 
-            <TouchableOpacity style={styles.resetBtn} onPress={handleResetUrl}>
-              <Ionicons name="refresh-outline" size={18} color={colors.textSecondary} />
-              <Text style={styles.resetBtnText}>Padrão</Text>
-            </TouchableOpacity>
-          </View>
+            <Text style={styles.primaryButtonText}>
+              Salvar URL
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.testBtn, testing && styles.btnDisabled]}
+            style={styles.secondaryButton}
+            onPress={handleResetUrl}
+          >
+            <Ionicons
+              name="refresh-outline"
+              size={18}
+              color="#333333"
+            />
+
+            <Text style={styles.secondaryButtonText}>
+              Restaurar padrão
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.testButton}
             onPress={handleTestConnection}
             disabled={testing}
           >
             {testing ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
-                <Ionicons name="pulse-outline" size={18} color={colors.primary} />
-                <Text style={styles.testBtnText}>Testar Comunicação com o Servidor</Text>
+                <Ionicons
+                  name="cloud-done-outline"
+                  size={18}
+                  color="#FFFFFF"
+                />
+
+                <Text style={styles.primaryButtonText}>
+                  Testar Comunicação com Servidor
+                </Text>
               </>
             )}
           </TouchableOpacity>
@@ -134,24 +285,83 @@ export const SettingsScreen = ({ navigation }) => {
             <View
               style={[
                 styles.statusBox,
-                status.ok ? styles.statusSuccess : styles.statusError
+                status.success
+                  ? styles.statusSuccess
+                  : styles.statusError
               ]}
             >
-              <Ionicons
-                name={status.ok ? 'checkmark-circle' : 'alert-circle'}
-                size={20}
-                color={status.ok ? colors.success : colors.danger}
-              />
-              <Text
-                style={[
-                  styles.statusText,
-                  status.ok ? styles.statusSuccessText : styles.statusErrorText
-                ]}
-              >
+              <Text style={styles.statusText}>
                 {status.message}
               </Text>
             </View>
           )}
+        </View>
+
+        {/* ALTERAÇÃO DE SENHA */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={23}
+              color={colors.primary}
+            />
+
+            <Text style={styles.cardTitle}>
+              Alterar senha
+            </Text>
+          </View>
+
+          <Text style={styles.description}>
+            Digite sua nova senha e confirme para solicitar a alteração.
+          </Text>
+
+          <Text style={styles.label}>
+            Nova senha
+          </Text>
+
+          <TextInput
+            style={styles.input}
+            value={newPassword}
+            onChangeText={setNewPassword}
+            placeholder="Digite a nova senha"
+            secureTextEntry
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>
+            Confirmar nova senha
+          </Text>
+
+          <TextInput
+            style={styles.input}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Digite novamente a nova senha"
+            secureTextEntry
+            autoCapitalize="none"
+          />
+
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleChangePassword}
+            disabled={changingPassword}
+          >
+            {changingPassword ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons
+                  name="key-outline"
+                  size={18}
+                  color="#FFFFFF"
+                />
+
+                <Text style={styles.primaryButtonText}>
+                  Alterar senha
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -161,147 +371,136 @@ export const SettingsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background
+    backgroundColor: colors.background || '#F5F6FA'
   },
+
   scrollContent: {
-    padding: 16
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
     padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    paddingBottom: 40
+  },
+
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.text || '#222222',
+    marginBottom: 20
+  },
+
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 18,
+    marginBottom: 20,
     elevation: 2
   },
-  iconRow: {
+
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 8
+    marginBottom: 18
   },
+
   cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.textPrimary
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222222',
+    marginLeft: 10
   },
+
   description: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.textSecondary,
-    marginBottom: 16
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 15,
+    lineHeight: 20
   },
+
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 6
+    color: '#444444',
+    marginBottom: 7,
+    marginTop: 12
   },
-  urlBadge: {
-    backgroundColor: '#F1F5F9',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border
-  },
-  urlText: {
+
+  currentUrl: {
     fontSize: 13,
-    color: colors.textPrimary,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace'
+    color: '#666666',
+    backgroundColor: '#F2F2F2',
+    padding: 12,
+    borderRadius: 8
   },
+
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F7F7F7',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#DDDDDD',
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-    color: colors.textPrimary,
-    marginBottom: 12
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12
-  },
-  saveBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: colors.primary,
-    paddingVertical: 10,
-    borderRadius: 8
-  },
-  saveBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13
-  },
-  resetBtn: {
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 10,
-    borderRadius: 8
-  },
-  resetBtnText: {
-    color: colors.textSecondary,
-    fontWeight: '600',
-    fontSize: 13
-  },
-  testBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: colors.primaryLight,
     paddingVertical: 12,
+    fontSize: 14,
+    color: '#222222'
+  },
+
+  primaryButton: {
+    backgroundColor: colors.primary || '#2563EB',
     borderRadius: 8,
-    marginTop: 4
-  },
-  btnDisabled: {
-    opacity: 0.6
-  },
-  testBtnText: {
-    color: colors.primary,
-    fontWeight: '600',
-    fontSize: 13
-  },
-  statusBox: {
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    marginTop: 18
+  },
+
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 8
+  },
+
+  secondaryButton: {
+    backgroundColor: '#EEEEEE',
+    borderRadius: 8,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10
+  },
+
+  secondaryButtonText: {
+    color: '#333333',
+    fontWeight: '600',
+    marginLeft: 8
+  },
+
+  testButton: {
+    backgroundColor: '#16845B',
+    borderRadius: 8,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10
+  },
+
+  statusBox: {
     padding: 12,
     borderRadius: 8,
-    marginTop: 14
+    marginTop: 15
   },
+
   statusSuccess: {
-    backgroundColor: colors.successLight
+    backgroundColor: '#E1F5E9'
   },
+
   statusError: {
-    backgroundColor: colors.dangerLight
+    backgroundColor: '#FCE4E4'
   },
+
   statusText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 16
-  },
-  statusSuccessText: {
-    color: colors.success
-  },
-  statusErrorText: {
-    color: colors.danger
+    fontSize: 13,
+    color: '#333333'
   }
 });
+
