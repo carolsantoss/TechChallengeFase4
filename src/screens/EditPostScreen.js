@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -23,7 +24,6 @@ export const EditPostScreen = ({ route, navigation }) => {
   const { isTeacher } = useAuth();
 
   const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
   const [description, setDescription] = useState('');
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -34,8 +34,8 @@ export const EditPostScreen = ({ route, navigation }) => {
       try {
         setLoading(true);
         const data = await api.getPostById(id);
+
         setTitle(data.title || '');
-        setAuthor(data.author || '');
         setDescription(data.description || '');
         setContent(data.content || '');
       } catch (err) {
@@ -53,16 +53,16 @@ export const EditPostScreen = ({ route, navigation }) => {
   const handleSave = async () => {
     if (saving) return;
 
-    if (!title.trim() || !author.trim() || !content.trim()) {
+    if (!title.trim() || !content.trim()) {
       showFeedback('Validação', 'Por favor, preencha todos os campos obrigatórios.');
       return;
     }
 
     try {
       setSaving(true);
+
       await api.updatePost(id, {
         title: title.trim(),
-        author: author.trim(),
         description: description.trim() || content.trim().substring(0, 120) + '...',
         content: content.trim()
       });
@@ -128,17 +128,6 @@ export const EditPostScreen = ({ route, navigation }) => {
                 value={title}
                 onChangeText={setTitle}
                 placeholder="Título da publicação"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Autor *</Text>
-              <TextInput
-                style={styles.input}
-                value={author}
-                onChangeText={setAuthor}
-                placeholder="Nome do autor"
                 placeholderTextColor={colors.textMuted}
               />
             </View>

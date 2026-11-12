@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
@@ -33,15 +33,19 @@ export const EditTeacherScreen = ({ route, navigation }) => {
     const loadTeacher = async () => {
       try {
         setLoading(true);
+
         const data = await api.getTeacherById(id);
-        setName(data.name || '');
+
+        setName(data.nome || data.name || '');
         setEmail(data.email || '');
-        setDepartment(data.department || '');
-        setTitle(data.title || '');
       } catch (err) {
-        showFeedback('Erro', 'Não foi possível carregar os dados do professor.', () => {
-          navigation.goBack();
-        });
+        showFeedback(
+          'Erro',
+          'Não foi possível carregar os dados do professor.',
+          () => {
+            navigation.goBack();
+          }
+        );
       } finally {
         setLoading(false);
       }
@@ -53,36 +57,60 @@ export const EditTeacherScreen = ({ route, navigation }) => {
   const handleSave = async () => {
     if (saving) return;
 
+    // Validação dos campos obrigatórios
     if (!name.trim() || !email.trim()) {
-      showFeedback('Validação', 'Nome e e-mail são obrigatórios.');
+      showFeedback(
+        'Validação',
+        'Nome e e-mail são obrigatórios.'
+      );
       return;
     }
 
     try {
       setSaving(true);
+
       await api.updateTeacher(id, {
-        name: name.trim(),
+        nome: name.trim(),
         email: email.trim().toLowerCase(),
-        department: department.trim(),
-        title: title.trim()
       });
 
-      showFeedback('Sucesso', 'Dados do professor atualizados com sucesso!', () => {
-        navigation.goBack();
-      });
+      showFeedback(
+        'Sucesso',
+        'Dados do professor atualizados com sucesso!',
+        () => {
+          navigation.goBack();
+        }
+      );
     } catch (error) {
       setSaving(false);
-      showFeedback('Erro', error.message || 'Falha ao salvar dados do professor.');
+
+      showFeedback(
+        'Erro',
+        error.message || 'Falha ao salvar dados do professor.'
+      );
     }
   };
 
   if (!isTeacher) {
     return (
       <View style={styles.container}>
-        <Header title="Editar Docente" showBack navigation={navigation} />
+        <Header
+          title="Editar Docente"
+          showBack
+          navigation={navigation}
+        />
+
         <View style={styles.centerContainer}>
-          <Ionicons name="lock-closed-outline" size={56} color={colors.danger} />
-          <Text style={styles.deniedTitle}>Acesso Restrito</Text>
+          <Ionicons
+            name="lock-closed-outline"
+            size={56}
+            color={colors.danger}
+          />
+
+          <Text style={styles.deniedTitle}>
+            Acesso Restrito
+          </Text>
+
           <Text style={styles.deniedSubtitle}>
             Apenas docentes autenticados possuem permissão para editar professores.
           </Text>
@@ -94,10 +122,21 @@ export const EditTeacherScreen = ({ route, navigation }) => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Header title="Editar Docente" showBack navigation={navigation} />
+        <Header
+          title="Editar Docente"
+          showBack
+          navigation={navigation}
+        />
+
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Carregando dados do docente...</Text>
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+          />
+
+          <Text style={styles.loadingText}>
+            Carregando dados do docente...
+          </Text>
         </View>
       </View>
     );
@@ -122,7 +161,10 @@ export const EditTeacherScreen = ({ route, navigation }) => {
         >
           <View style={styles.card}>
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Nome Completo *</Text>
+              <Text style={styles.label}>
+                Nome Completo *
+              </Text>
+
               <TextInput
                 style={styles.input}
                 value={name}
@@ -133,7 +175,10 @@ export const EditTeacherScreen = ({ route, navigation }) => {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>E-mail Institucional *</Text>
+              <Text style={styles.label}>
+                E-mail Institucional *
+              </Text>
+
               <TextInput
                 style={styles.input}
                 value={email}
@@ -145,20 +190,30 @@ export const EditTeacherScreen = ({ route, navigation }) => {
               />
             </View>
 
-        
-          
-
             <TouchableOpacity
-              style={[styles.submitButton, saving && styles.buttonDisabled]}
+              style={[
+                styles.submitButton,
+                saving && styles.buttonDisabled
+              ]}
               onPress={handleSave}
               disabled={saving}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator
+                  size="small"
+                  color="#FFFFFF"
+                />
               ) : (
                 <>
-                  <Ionicons name="save-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>Salvar Alterações</Text>
+                  <Ionicons
+                    name="save-outline"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+
+                  <Text style={styles.submitButtonText}>
+                    Salvar Alterações
+                  </Text>
                 </>
               )}
             </TouchableOpacity>

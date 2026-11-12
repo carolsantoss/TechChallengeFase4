@@ -26,7 +26,8 @@ const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
   const { user } = useAuth();
-  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
+  const isLoggedIn = !!user;
 
   return (
     <Tab.Navigator
@@ -65,7 +66,13 @@ const MainTabs = () => {
             iconName = focused ? 'settings' : 'settings-outline';
           }
 
-          return <Ionicons name={iconName} size={size || 22} color={color} />;
+          return (
+            <Ionicons
+              name={iconName}
+              size={size || 22}
+              color={color}
+            />
+          );
         }
       })}
     >
@@ -81,27 +88,25 @@ const MainTabs = () => {
         options={{ tabBarLabel: 'Admin' }}
       />
 
-      {isAdmin && (
-        <Tab.Screen
-          name="TeachersTab"
-          component={TeachersListScreen}
-          options={{ tabBarLabel: 'Docentes' }}
-        />
-      )}
-
-      {isAdmin && (
-        <Tab.Screen
-          name="StudentsTab"
-          component={StudentsListScreen}
-          options={{ tabBarLabel: 'Alunos' }}
-        />
-      )}
+      <Tab.Screen
+        name="TeachersTab"
+        component={TeachersListScreen}
+        options={{ tabBarLabel: 'Docentes' }}
+      />
 
       <Tab.Screen
-        name="SettingsTab"
-        component={SettingsScreen}
-        options={{ tabBarLabel: 'Ajustes' }}
+        name="StudentsTab"
+        component={StudentsListScreen}
+        options={{ tabBarLabel: 'Alunos' }}
       />
+
+      {isLoggedIn && (
+        <Tab.Screen
+          name="SettingsTab"
+          component={SettingsScreen}
+          options={{ tabBarLabel: 'Ajustes' }}
+        />
+      )}
     </Tab.Navigator>
   );
 };
@@ -114,15 +119,50 @@ export const AppNavigator = () => {
         animation: 'slide_from_right'
       }}
     >
-      <Stack.Screen name="MainTabs" component={MainTabs} />
-      <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-      <Stack.Screen name="CreatePost" component={CreatePostScreen} />
-      <Stack.Screen name="EditPost" component={EditPostScreen} />
-      <Stack.Screen name="CreateTeacher" component={CreateTeacherScreen} />
-      <Stack.Screen name="EditTeacher" component={EditTeacherScreen} />
-      <Stack.Screen name="CreateStudent" component={CreateStudentScreen} />
-      <Stack.Screen name="EditStudent" component={EditStudentScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabs}
+      />
+
+      <Stack.Screen
+        name="PostDetail"
+        component={PostDetailScreen}
+      />
+
+      <Stack.Screen
+        name="CreatePost"
+        component={CreatePostScreen}
+      />
+
+      <Stack.Screen
+        name="EditPost"
+        component={EditPostScreen}
+      />
+
+      <Stack.Screen
+        name="CreateTeacher"
+        component={CreateTeacherScreen}
+      />
+
+      <Stack.Screen
+        name="EditTeacher"
+        component={EditTeacherScreen}
+      />
+
+      <Stack.Screen
+        name="CreateStudent"
+        component={CreateStudentScreen}
+      />
+
+      <Stack.Screen
+        name="EditStudent"
+        component={EditStudentScreen}
+      />
+
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+      />
     </Stack.Navigator>
   );
 };

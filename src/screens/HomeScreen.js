@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,41 +18,103 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
+// Remove acentos e padroniza o texto para comparação
+const normalizeText = (text) => {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+};
+
+// Extrai os textos dos campos que podem existir em um post
+const getPostSearchText = (post) => {
+  const author =
+    post.autor ||
+    post.author ||
+    post.usuario ||
+    post.user ||
+    {};
+
+  const authorName =
+    typeof author === 'string'
+      ? author
+      : author.nome || author.name || '';
+
+  return normalizeText([
+    post.titulo,
+    post.title,
+    post.autor_nome,
+    post.author_name,
+    authorName,
+    post.conteudo,
+    post.content,
+    post.descricao,
+    post.description,
+    post.assunto,
+    post.subject
+  ].filter(Boolean).join(' '));
+};
+
 export const HomeScreen = ({ navigation }) => {
   const { isTeacher } = useAuth();
+
   const [posts, setPosts] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchPosts = async (searchTerm = search) => {
+  // Carrega sempre todos os posts, sem aplicar pesquisa na API
+  const fetchPosts = useCallback(async () => {
     try {
       setError(null);
-      const data = await api.getPosts(searchTerm);
-      setPosts(data);
+
+      const data = await api.getPosts('');
+
+      const postsList = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.posts)
+          ? data.posts
+          : [];
+
+      setPosts(postsList);
     } catch (err) {
-      setError('Não foi possível carregar as publicações. Verifique a conexão com o servidor.');
+      setError(
+        'Não foi possível carregar as publicações. Verifique a conexão com o servidor.'
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
+  // Atualiza os posts quando a tela recebe foco
   useFocusEffect(
     useCallback(() => {
-      fetchPosts(search);
-    }, [search])
+      fetchPosts();
+    }, [fetchPosts])
   );
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchPosts(search);
+    fetchPosts();
   };
 
   const handleSearchChange = (text) => {
     setSearch(text);
   };
+
+  // Filtra localmente os posts já carregados
+  const filteredPosts = posts.filter((post) => {
+    const searchTerm = normalizeText(search);
+
+    if (!searchTerm) {
+      return true;
+    }
+
+    return getPostSearchText(post).includes(searchTerm);
+  });
 
   return (
     <View style={styles.container}>
@@ -72,21 +135,39 @@ export const HomeScreen = ({ navigation }) => {
       {loading && !refreshing ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Carregando postagens...</Text>
+          <Text style={styles.loadingText}>
+            Carregando postagens...
+          </Text>
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.danger} />
+          <Ionicons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.danger}
+          />
+
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => fetchPosts(search)}>
-            <Text style={styles.retryButtonText}>Tentar Novamente</Text>
+
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={fetchPosts}
+          >
+            <Text style={styles.retryButtonText}>
+              Tentar Novamente
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={posts}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.listContent}
+          data={filteredPosts}
+          keyExtractor={(item, index) =>
+            String(item.id || item._id || index)
+          }
+          contentContainerStyle={[
+            styles.listContent,
+            filteredPosts.length === 0 && { flexGrow: 1 }
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -97,13 +178,25 @@ export const HomeScreen = ({ navigation }) => {
           renderItem={({ item }) => (
             <PostCard
               post={item}
-              onPress={() => navigation.navigate('PostDetail', { id: item.id })}
+              onPress={() =>
+                navigation.navigate('PostDetail', {
+                  id: item.id || item._id
+                })
+              }
             />
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="document-text-outline" size={48} color={colors.textMuted} />
-              <Text style={styles.emptyTitle}>Nenhuma postagem encontrada</Text>
+              <Ionicons
+                name="document-text-outline"
+                size={48}
+                color={colors.textMuted}
+              />
+
+              <Text style={styles.emptyTitle}>
+                Nenhuma postagem encontrada
+              </Text>
+
               <Text style={styles.emptySubtitle}>
                 {search
                   ? 'Tente utilizar termos diferentes na busca.'

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -18,6 +19,44 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
+// Remove acentos e padroniza o texto para comparação
+const normalizeText = (text) => {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+};
+
+// Extrai os textos dos campos que podem existir em um post
+const getPostSearchText = (post) => {
+  const author =
+    post.autor ||
+    post.author ||
+    post.usuario ||
+    post.user ||
+    {};
+
+  const authorName =
+    typeof author === 'string'
+      ? author
+      : author.nome || author.name || '';
+
+  return normalizeText([
+    post.titulo,
+    post.title,
+    post.autor_nome,
+    post.author_name,
+    authorName,
+    post.conteudo,
+    post.content,
+    post.descricao,
+    post.description,
+    post.assunto,
+    post.subject
+  ].filter(Boolean).join(' '));
+};
+
 export const AdminPostsScreen = ({ navigation }) => {
   const { isTeacher } = useAuth();
 
@@ -29,28 +68,51 @@ export const AdminPostsScreen = ({ navigation }) => {
   const [postToDelete, setPostToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchPosts = async (searchTerm = search) => {
+  // Carrega todas as publicações, sem filtro na API
+  const fetchPosts = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.getPosts(searchTerm);
-      setPosts(data);
+
+      const data = await api.getPosts('');
+
+      const postsList = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.posts)
+          ? data.posts
+          : [];
+
+      setPosts(postsList);
     } catch (err) {
-      Alert.alert('Erro', 'Não foi possível carregar as publicações para administração.');
+      Alert.alert(
+        'Erro',
+        'Não foi possível carregar as publicações para administração.'
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
+  // Atualiza a lista quando a tela recebe foco
   useFocusEffect(
     useCallback(() => {
-      fetchPosts(search);
-    }, [search])
+      fetchPosts();
+    }, [fetchPosts])
   );
 
   const handleSearchChange = (text) => {
     setSearch(text);
-    fetchPosts(text);
   };
+
+  // Filtragem local das publicações
+  const filteredPosts = posts.filter((post) => {
+    const searchTerm = normalizeText(search);
+
+    if (!searchTerm) {
+      return true;
+    }
+
+    return getPostSearchText(post).includes(searchTerm);
+  });
 
   const promptDelete = (post) => {
     setPostToDelete(post);
@@ -62,10 +124,14 @@ export const AdminPostsScreen = ({ navigation }) => {
 
     try {
       setDeleting(true);
-      await api.deletePost(postToDelete.id);
+
+      await api.deletePost(postToDelete.id || postToDelete._id);
+
       setDeleteModalVisible(false);
       setPostToDelete(null);
-      fetchPosts(search);
+
+      // Atualiza todas as publicações após excluir
+      await fetchPosts();
     } catch (err) {
       Alert.alert('Erro', 'Não foi possível excluir a postagem.');
     } finally {
@@ -76,18 +142,31 @@ export const AdminPostsScreen = ({ navigation }) => {
   if (!isTeacher) {
     return (
       <View style={styles.container}>
-        <Header title="Painel Administrativo" navigation={navigation} />
+        <Header
+          title="Painel Administrativo"
+          navigation={navigation}
+        />
+
         <View style={styles.centerContainer}>
-          <Ionicons name="lock-closed-outline" size={56} color={colors.danger} />
+          <Ionicons
+            name="lock-closed-outline"
+            size={56}
+            color={colors.danger}
+          />
+
           <Text style={styles.deniedTitle}>Acesso Restrito</Text>
+
           <Text style={styles.deniedSubtitle}>
             Esta página administrativa é restrita a docentes autenticados.
           </Text>
+
           <TouchableOpacity
             style={styles.loginRedirectBtn}
             onPress={() => navigation.navigate('Login')}
           >
-            <Text style={styles.loginRedirectBtnText}>Fazer Login como Docente</Text>
+            <Text style={styles.loginRedirectBtnText}>
+              Fazer Login como Docente
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -107,7 +186,11 @@ export const AdminPostsScreen = ({ navigation }) => {
           style={styles.shortcutCard}
           onPress={() => navigation.navigate('CreatePost')}
         >
-          <Ionicons name="add-circle" size={20} color={colors.primary} />
+          <Ionicons
+            name="add-circle"
+            size={20}
+            color={colors.primary}
+          />
           <Text style={styles.shortcutText}>Novo Post</Text>
         </TouchableOpacity>
 
@@ -115,7 +198,11 @@ export const AdminPostsScreen = ({ navigation }) => {
           style={styles.shortcutCard}
           onPress={() => navigation.navigate('TeachersTab')}
         >
-          <Ionicons name="people" size={20} color={colors.secondary} />
+          <Ionicons
+            name="people"
+            size={20}
+            color={colors.secondary}
+          />
           <Text style={styles.shortcutText}>Docentes</Text>
         </TouchableOpacity>
 
@@ -123,7 +210,11 @@ export const AdminPostsScreen = ({ navigation }) => {
           style={styles.shortcutCard}
           onPress={() => navigation.navigate('StudentsTab')}
         >
-          <Ionicons name="school" size={20} color={colors.teacherText} />
+          <Ionicons
+            name="school"
+            size={20}
+            color={colors.teacherText}
+          />
           <Text style={styles.shortcutText}>Estudantes</Text>
         </TouchableOpacity>
       </View>
@@ -137,32 +228,59 @@ export const AdminPostsScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Todas as Postagens ({posts.length})</Text>
+        <Text style={styles.sectionTitle}>
+          Todas as Postagens ({filteredPosts.length})
+        </Text>
       </View>
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Carregando postagens...</Text>
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+          />
+          <Text style={styles.loadingText}>
+            Carregando postagens...
+          </Text>
         </View>
       ) : (
         <FlatList
-          data={posts}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <PostCard
-              post={item}
-              showAdminActions
-              onPress={() => navigation.navigate('PostDetail', { id: item.id })}
-              onEdit={() => navigation.navigate('EditPost', { id: item.id })}
-              onDelete={() => promptDelete(item)}
-            />
-          )}
+          data={filteredPosts}
+          keyExtractor={(item, index) =>
+            String(item.id || item._id || index)
+          }
+          contentContainerStyle={[
+            styles.listContent,
+            filteredPosts.length === 0 && { flexGrow: 1 }
+          ]}
+          renderItem={({ item }) => {
+            const postId = item.id || item._id;
+
+            return (
+              <PostCard
+                post={item}
+                showAdminActions
+                onPress={() =>
+                  navigation.navigate('PostDetail', { id: postId })
+                }
+                onEdit={() =>
+                  navigation.navigate('EditPost', { id: postId })
+                }
+                onDelete={() => promptDelete(item)}
+              />
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="documents-outline" size={48} color={colors.textMuted} />
-              <Text style={styles.emptyTitle}>Nenhuma postagem encontrada</Text>
+              <Ionicons
+                name="documents-outline"
+                size={48}
+                color={colors.textMuted}
+              />
+
+              <Text style={styles.emptyTitle}>
+                Nenhuma postagem encontrada
+              </Text>
             </View>
           }
         />
@@ -171,7 +289,7 @@ export const AdminPostsScreen = ({ navigation }) => {
       <ConfirmModal
         visible={deleteModalVisible}
         title="Excluir Postagem"
-        message={`Deseja realmente remover permanentemente a postagem "${postToDelete?.title}"?`}
+        message={`Deseja realmente remover permanentemente a postagem "${postToDelete?.title || postToDelete?.titulo || ''}"?`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteModalVisible(false)}
         loading={deleting}
@@ -239,6 +357,7 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 40
   },
   emptyTitle: {

@@ -1,12 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Alert,
   ScrollView
 } from 'react-native';
@@ -27,26 +26,33 @@ import { colors } from '../theme/colors';
 export const SettingsScreen = ({ navigation }) => {
   const { user } = useAuth();
 
+  // Nome do usuário logado
+  const userName = user?.nome || user?.name || 'Usuário';
+
   // Configuração da API
   const [currentUrl, setCurrentUrl] = useState('');
   const [inputUrl, setInputUrl] = useState('');
-  const [testing, setTesting] = useState(false);
-  const [status, setStatus] = useState(null);
 
   // Alteração de senha
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
+  /*
   useEffect(() => {
     loadUrl();
   }, []);
+  */
 
   // Carregar URL salva
-  const loadUrl = async () => {
-    const url = await getBaseUrl();
-    setCurrentUrl(url);
-    setInputUrl(url);
+  /*const loadUrl = async () => {
+    try {
+      const url = await getBaseUrl();
+      setCurrentUrl(url);
+      setInputUrl(url);
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível carregar a URL da API.');
+    }
   };
 
   // Salvar URL da API
@@ -61,7 +67,6 @@ export const SettingsScreen = ({ navigation }) => {
 
       setCurrentUrl(savedUrl);
       setInputUrl(savedUrl);
-      setStatus(null);
 
       Alert.alert('Sucesso', 'URL da API salva com sucesso.');
     } catch (error) {
@@ -82,11 +87,14 @@ export const SettingsScreen = ({ navigation }) => {
         {
           text: 'Restaurar',
           onPress: async () => {
-            const url = await resetBaseUrl();
+            try {
+              const url = await resetBaseUrl();
 
-            setCurrentUrl(url);
-            setInputUrl(url);
-            setStatus(null);
+              setCurrentUrl(url);
+              setInputUrl(url);
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível restaurar a URL.');
+            }
           }
         }
       ]
@@ -121,6 +129,7 @@ export const SettingsScreen = ({ navigation }) => {
       setTesting(false);
     }
   };
+  */
 
   // Alterar senha
   const handleChangePassword = async () => {
@@ -194,7 +203,10 @@ export const SettingsScreen = ({ navigation }) => {
       >
         <Text style={styles.title}>Configurações</Text>
 
-        {/* CONFIGURAÇÃO DA API */}
+        {/*
+        CONFIGURAÇÃO DA API
+        Mantida no código, mas desativada temporariamente.
+
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons
@@ -258,44 +270,8 @@ export const SettingsScreen = ({ navigation }) => {
               Restaurar padrão
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.testButton}
-            onPress={handleTestConnection}
-            disabled={testing}
-          >
-            {testing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons
-                  name="cloud-done-outline"
-                  size={18}
-                  color="#FFFFFF"
-                />
-
-                <Text style={styles.primaryButtonText}>
-                  Testar Comunicação com Servidor
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {status && (
-            <View
-              style={[
-                styles.statusBox,
-                status.success
-                  ? styles.statusSuccess
-                  : styles.statusError
-              ]}
-            >
-              <Text style={styles.statusText}>
-                {status.message}
-              </Text>
-            </View>
-          )}
         </View>
+        */}
 
         {/* ALTERAÇÃO DE SENHA */}
         <View style={styles.card}>
@@ -310,6 +286,11 @@ export const SettingsScreen = ({ navigation }) => {
               Alterar senha
             </Text>
           </View>
+
+          {/* SAUDAÇÃO PERSONALIZADA */}
+          <Text style={styles.greeting}>
+            Olá, {userName}!
+          </Text>
 
           <Text style={styles.description}>
             Digite sua nova senha e confirme para solicitar a alteração.
@@ -342,12 +323,17 @@ export const SettingsScreen = ({ navigation }) => {
           />
 
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[
+              styles.primaryButton,
+              changingPassword && styles.buttonDisabled
+            ]}
             onPress={handleChangePassword}
             disabled={changingPassword}
           >
             {changingPassword ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <Text style={styles.primaryButtonText}>
+                Alterando...
+              </Text>
             ) : (
               <>
                 <Ionicons
@@ -407,6 +393,13 @@ const styles = StyleSheet.create({
     marginLeft: 10
   },
 
+  greeting: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary || '#2563EB',
+    marginBottom: 10
+  },
+
   description: {
     fontSize: 14,
     color: '#666666',
@@ -451,6 +444,10 @@ const styles = StyleSheet.create({
     marginTop: 18
   },
 
+  buttonDisabled: {
+    opacity: 0.6
+  },
+
   primaryButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
@@ -472,35 +469,5 @@ const styles = StyleSheet.create({
     color: '#333333',
     fontWeight: '600',
     marginLeft: 8
-  },
-
-  testButton: {
-    backgroundColor: '#16845B',
-    borderRadius: 8,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10
-  },
-
-  statusBox: {
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 15
-  },
-
-  statusSuccess: {
-    backgroundColor: '#E1F5E9'
-  },
-
-  statusError: {
-    backgroundColor: '#FCE4E4'
-  },
-
-  statusText: {
-    fontSize: 13,
-    color: '#333333'
   }
 });
-
