@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
 import {
   View,
@@ -23,13 +22,20 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
+const PAGE_SIZE = 4;
+
+// Remove acentos e deixa minúsculo para a busca
+const normalize = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
 export const StudentsListScreen = ({ navigation }) => {
   const { isTeacher } = useAuth();
 
-  const [students, setStudents] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -37,50 +43,27 @@ export const StudentsListScreen = ({ navigation }) => {
   const [studentToDelete, setStudentToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // CARREGAR SOMENTE ALUNOS
-  const fetchStudents = async (
-    currentPage = page,
-    searchTerm = search
-  ) => {
+  // CARREGAR TODOS OS ALUNOS (busca e paginação são feitas aqui no app)
+  const fetchStudents = async () => {
     try {
       setLoading(true);
 
-      const res = await api.getStudents(
-        currentPage,
-        4,
-        searchTerm
-      );
+      // O servidor devolve todos os usuários (alunos e docentes) em um array
+      const res = await api.getStudents(1, 1000, '');
 
-      console.log('Resposta da API:', res);
-
-      // Aceita array direto ou resposta paginada.
       const listaBruta = Array.isArray(res)
         ? res
         : Array.isArray(res?.data)
           ? res.data
           : [];
 
-      // FILTRA SOMENTE USUÁRIOS COM ROLE DE ALUNO.
+      // FILTRA SOMENTE USUÁRIOS COM ROLE DE ALUNO
       const listaAlunos = listaBruta.filter((user) => {
-        const role = String(user.role || '')
-          .trim()
-          .toLowerCase();
-
+        const role = String(user.role || '').trim().toLowerCase();
         return role === 'aluno' || role === 'student';
       });
 
-      console.log('Somente alunos filtrados:', listaAlunos);
-
-      setStudents(listaAlunos);
-
-      if (Array.isArray(res)) {
-        setTotal(listaAlunos.length);
-        setTotalPages(1);
-      } else {
-        setTotal(res?.total ?? listaAlunos.length);
-        setTotalPages(res?.totalPages || 1);
-      }
-
+      setAllStudents(listaAlunos);
     } catch (err) {
       console.log('Erro ao carregar alunos:', err);
 
@@ -93,19 +76,45 @@ export const StudentsListScreen = ({ navigation }) => {
     }
   };
 
-  // ATUALIZAR AO ABRIR A TELA
+  // ATUALIZAR AO ABRIR A TELA (não recarrega a cada letra digitada)
   useFocusEffect(
     useCallback(() => {
-      fetchStudents(page, search);
-    }, [page, search])
+      fetchStudents();
+    }, [])
   );
 
+  // BUSCA (nome ou e-mail)
+  const filtered = useMemo(() => {
+    const term = normalize(search.trim());
+    if (!term) return allStudents;
+
+    return allStudents.filter(
+      (s) =>
+        normalize(s.nome || s.name).includes(term) ||
+        normalize(s.email).includes(term)
+    );
+  }, [allStudents, search]);
+
   // PAGINAÇÃO
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const students = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  );
+
+  // Se a página atual deixar de existir (ex.: após excluir), volta uma página
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const handlePageChange = (newPage) => {
     setPage(newPage);
   };
 
-  // BUSCA
   const handleSearchChange = (text) => {
     setSearch(text);
     setPage(1);
@@ -129,13 +138,9 @@ export const StudentsListScreen = ({ navigation }) => {
       setDeleteModalVisible(false);
       setStudentToDelete(null);
 
-      Alert.alert(
-        'Sucesso',
-        'Estudante excluído com sucesso.'
-      );
+      Alert.alert('Sucesso', 'Estudante excluído com sucesso.');
 
-      fetchStudents(page, search);
-
+      fetchStudents();
     } catch (err) {
       console.log('Erro ao excluir aluno:', err);
 
@@ -152,10 +157,7 @@ export const StudentsListScreen = ({ navigation }) => {
   if (!isTeacher) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Gestão de Alunos"
-          navigation={navigation}
-        />
+        <Header title="Gestão de Alunos" navigation={navigation} />
 
         <View style={styles.centerContainer}>
           <Ionicons
@@ -164,12 +166,11 @@ export const StudentsListScreen = ({ navigation }) => {
             color={colors.danger}
           />
 
-          <Text style={styles.deniedTitle}>
-            Acesso Restrito
-          </Text>
+          <Text style={styles.deniedTitle}>Acesso Restrito</Text>
 
           <Text style={styles.deniedSubtitle}>
-            Apenas docentes autenticados podem visualizar e gerenciar os estudantes.
+            Apenas docentes autenticados podem visualizar e gerenciar os
+            estudantes.
           </Text>
         </View>
       </View>
@@ -178,7 +179,6 @@ export const StudentsListScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-
       <Header
         title="Estudantes"
         subtitle="Quadro de Alunos"
@@ -196,53 +196,38 @@ export const StudentsListScreen = ({ navigation }) => {
 
       {/* CABEÇALHO E BOTÃO NOVO ALUNO */}
       <View style={styles.actionHeader}>
-        <Text style={styles.sectionTitle}>
-          Alunos Cadastrados
-        </Text>
+        <Text style={styles.sectionTitle}>Alunos Cadastrados</Text>
 
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('CreateStudent')}
         >
-          <Ionicons
-            name="person-add"
-            size={16}
-            color="#FFFFFF"
-          />
+          <Ionicons name="person-add" size={16} color="#FFFFFF" />
 
-          <Text style={styles.addButtonText}>
-            Novo Aluno
-          </Text>
+          <Text style={styles.addButtonText}>Novo Aluno</Text>
         </TouchableOpacity>
       </View>
 
       {/* CARREGAMENTO */}
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator
-            size="large"
-            color={colors.primary}
-          />
+          <ActivityIndicator size="large" color={colors.primary} />
 
-          <Text style={styles.loadingText}>
-            Carregando estudantes...
-          </Text>
+          <Text style={styles.loadingText}>Carregando estudantes...</Text>
         </View>
       ) : (
         <FlatList
           data={students}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
-
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => {
             const studentName = item.nome || item.name || 'Aluno';
 
             return (
               <View style={styles.card}>
-
                 {/* INFORMAÇÕES DO ALUNO */}
                 <View style={styles.cardHeader}>
-
                   <View style={styles.avatarContainer}>
                     <Text style={styles.avatarText}>
                       {studentName.charAt(0).toUpperCase()}
@@ -250,21 +235,14 @@ export const StudentsListScreen = ({ navigation }) => {
                   </View>
 
                   <View style={styles.infoContainer}>
-                    <Text style={styles.nome}>
-                      {studentName}
-                    </Text>
+                    <Text style={styles.nome}>{studentName}</Text>
 
-                    <Text style={styles.email}>
-                      {item.email}
-                    </Text>
-
+                    <Text style={styles.email}>{item.email}</Text>
                   </View>
-
                 </View>
 
                 {/* AÇÕES */}
                 <View style={styles.cardActions}>
-
                   <TouchableOpacity
                     style={[styles.btnAction, styles.btnEdit]}
                     onPress={() =>
@@ -279,9 +257,7 @@ export const StudentsListScreen = ({ navigation }) => {
                       color={colors.primary}
                     />
 
-                    <Text style={styles.btnEditText}>
-                      Editar
-                    </Text>
+                    <Text style={styles.btnEditText}>Editar</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -294,16 +270,12 @@ export const StudentsListScreen = ({ navigation }) => {
                       color={colors.danger}
                     />
 
-                    <Text style={styles.btnDeleteText}>
-                      Excluir
-                    </Text>
+                    <Text style={styles.btnDeleteText}>Excluir</Text>
                   </TouchableOpacity>
-
                 </View>
               </View>
             );
           }}
-
           ListFooterComponent={
             <Pagination
               page={page}
@@ -312,7 +284,6 @@ export const StudentsListScreen = ({ navigation }) => {
               onPageChange={handlePageChange}
             />
           }
-
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons
@@ -333,19 +304,19 @@ export const StudentsListScreen = ({ navigation }) => {
       <ConfirmModal
         visible={deleteModalVisible}
         title="Excluir Estudante"
-        message={`Deseja realmente remover o aluno ${studentToDelete?.nome || studentToDelete?.name || ''} do sistema?`}
+        message={`Deseja realmente remover o aluno ${
+          studentToDelete?.nome || studentToDelete?.name || ''
+        } do sistema?`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteModalVisible(false)}
         loading={deleting}
       />
-
     </View>
   );
 };
 
 // ESTILOS
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     backgroundColor: colors.background
@@ -520,5 +491,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20
   }
-
 });

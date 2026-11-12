@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
 import {
   View,
@@ -23,13 +22,20 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
+const PAGE_SIZE = 4;
+
+// Remove acentos e deixa minúsculo para a busca
+const normalize = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
 export const TeachersListScreen = ({ navigation }) => {
   const { isTeacher } = useAuth();
 
-  const [teachers, setTeachers] = useState([]);
+  const [allTeachers, setAllTeachers] = useState([]);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -37,23 +43,14 @@ export const TeachersListScreen = ({ navigation }) => {
   const [teacherToDelete, setTeacherToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // CARREGAR SOMENTE DOCENTES
-  const fetchTeachers = async (
-    currentPage = page,
-    searchTerm = search
-  ) => {
+  // CARREGAR TODOS OS DOCENTES (busca e paginação são feitas aqui no app)
+  const fetchTeachers = async () => {
     try {
       setLoading(true);
 
-      const res = await api.getTeachers(
-        currentPage,
-        4,
-        searchTerm
-      );
+      // O servidor devolve todos os usuários (alunos e docentes) em um array
+      const res = await api.getTeachers(1, 1000, '');
 
-      console.log('Resposta da API - Docentes:', res);
-
-      // Aceita array direto ou resposta paginada.
       const listaBruta = Array.isArray(res)
         ? res
         : Array.isArray(res?.data)
@@ -62,25 +59,11 @@ export const TeachersListScreen = ({ navigation }) => {
 
       // FILTRAR SOMENTE ROLE DOCENTE
       const listaDocentes = listaBruta.filter((user) => {
-        const role = String(user.role || '')
-          .trim()
-          .toLowerCase();
-
+        const role = String(user.role || '').trim().toLowerCase();
         return role === 'docente' || role === 'teacher';
       });
 
-      console.log('Somente docentes filtrados:', listaDocentes);
-
-      setTeachers(listaDocentes);
-
-      if (Array.isArray(res)) {
-        setTotal(listaDocentes.length);
-        setTotalPages(1);
-      } else {
-        setTotal(res?.total ?? listaDocentes.length);
-        setTotalPages(res?.totalPages || 1);
-      }
-
+      setAllTeachers(listaDocentes);
     } catch (err) {
       console.log('Erro ao carregar docentes:', err);
 
@@ -93,19 +76,45 @@ export const TeachersListScreen = ({ navigation }) => {
     }
   };
 
-  // ATUALIZAR AO ABRIR A TELA
+  // ATUALIZAR AO ABRIR A TELA (não recarrega a cada letra digitada)
   useFocusEffect(
     useCallback(() => {
-      fetchTeachers(page, search);
-    }, [page, search])
+      fetchTeachers();
+    }, [])
   );
 
+  // BUSCA (nome ou e-mail)
+  const filtered = useMemo(() => {
+    const term = normalize(search.trim());
+    if (!term) return allTeachers;
+
+    return allTeachers.filter(
+      (t) =>
+        normalize(t.nome || t.name).includes(term) ||
+        normalize(t.email).includes(term)
+    );
+  }, [allTeachers, search]);
+
   // PAGINAÇÃO
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const teachers = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  );
+
+  // Se a página atual deixar de existir (ex.: após excluir), volta uma página
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const handlePageChange = (newPage) => {
     setPage(newPage);
   };
 
-  // BUSCA
   const handleSearchChange = (text) => {
     setSearch(text);
     setPage(1);
@@ -129,13 +138,9 @@ export const TeachersListScreen = ({ navigation }) => {
       setDeleteModalVisible(false);
       setTeacherToDelete(null);
 
-      Alert.alert(
-        'Sucesso',
-        'Docente excluído com sucesso.'
-      );
+      Alert.alert('Sucesso', 'Docente excluído com sucesso.');
 
-      await fetchTeachers(page, search);
-
+      await fetchTeachers();
     } catch (err) {
       console.log('Erro ao excluir docente:', err);
 
@@ -152,10 +157,7 @@ export const TeachersListScreen = ({ navigation }) => {
   if (!isTeacher) {
     return (
       <View style={styles.container}>
-        <Header
-          title="Gestão de Docentes"
-          navigation={navigation}
-        />
+        <Header title="Gestão de Docentes" navigation={navigation} />
 
         <View style={styles.centerContainer}>
           <Ionicons
@@ -164,12 +166,11 @@ export const TeachersListScreen = ({ navigation }) => {
             color={colors.danger}
           />
 
-          <Text style={styles.deniedTitle}>
-            Acesso Restrito
-          </Text>
+          <Text style={styles.deniedTitle}>Acesso Restrito</Text>
 
           <Text style={styles.deniedSubtitle}>
-            Apenas docentes autenticados podem visualizar e gerenciar o corpo docente.
+            Apenas docentes autenticados podem visualizar e gerenciar o corpo
+            docente.
           </Text>
         </View>
       </View>
@@ -178,7 +179,6 @@ export const TeachersListScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-
       <Header
         title="Professores"
         subtitle="Quadro de Docentes"
@@ -196,53 +196,38 @@ export const TeachersListScreen = ({ navigation }) => {
 
       {/* CABEÇALHO E BOTÃO NOVO DOCENTE */}
       <View style={styles.actionHeader}>
-        <Text style={styles.sectionTitle}>
-          Docentes Cadastrados
-        </Text>
+        <Text style={styles.sectionTitle}>Docentes Cadastrados</Text>
 
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('CreateTeacher')}
         >
-          <Ionicons
-            name="person-add"
-            size={16}
-            color="#FFFFFF"
-          />
+          <Ionicons name="person-add" size={16} color="#FFFFFF" />
 
-          <Text style={styles.addButtonText}>
-            Novo Docente
-          </Text>
+          <Text style={styles.addButtonText}>Novo Docente</Text>
         </TouchableOpacity>
       </View>
 
       {/* CARREGAMENTO */}
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator
-            size="large"
-            color={colors.primary}
-          />
+          <ActivityIndicator size="large" color={colors.primary} />
 
-          <Text style={styles.loadingText}>
-            Carregando professores...
-          </Text>
+          <Text style={styles.loadingText}>Carregando professores...</Text>
         </View>
       ) : (
         <FlatList
           data={teachers}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
-
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => {
             const teacherName = item.nome || item.name || 'Professor';
 
             return (
               <View style={styles.card}>
-
                 {/* INFORMAÇÕES DO DOCENTE */}
                 <View style={styles.cardHeader}>
-
                   <View style={styles.avatarContainer}>
                     <Text style={styles.avatarText}>
                       {teacherName.charAt(0).toUpperCase()}
@@ -250,13 +235,9 @@ export const TeachersListScreen = ({ navigation }) => {
                   </View>
 
                   <View style={styles.infoContainer}>
-                    <Text style={styles.nome}>
-                      {teacherName}
-                    </Text>
+                    <Text style={styles.nome}>{teacherName}</Text>
 
-                    <Text style={styles.email}>
-                      {item.email}
-                    </Text>
+                    <Text style={styles.email}>{item.email}</Text>
 
                     <View style={styles.badgeRow}>
                       <View style={styles.tagBadge}>
@@ -264,14 +245,12 @@ export const TeachersListScreen = ({ navigation }) => {
                           {item.title || 'Professor'}
                         </Text>
                       </View>
-
                     </View>
                   </View>
                 </View>
 
                 {/* AÇÕES */}
                 <View style={styles.cardActions}>
-
                   <TouchableOpacity
                     style={[styles.btnAction, styles.btnEdit]}
                     onPress={() =>
@@ -286,9 +265,7 @@ export const TeachersListScreen = ({ navigation }) => {
                       color={colors.primary}
                     />
 
-                    <Text style={styles.btnEditText}>
-                      Editar
-                    </Text>
+                    <Text style={styles.btnEditText}>Editar</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -301,16 +278,12 @@ export const TeachersListScreen = ({ navigation }) => {
                       color={colors.danger}
                     />
 
-                    <Text style={styles.btnDeleteText}>
-                      Excluir
-                    </Text>
+                    <Text style={styles.btnDeleteText}>Excluir</Text>
                   </TouchableOpacity>
-
                 </View>
               </View>
             );
           }}
-
           ListFooterComponent={
             <Pagination
               page={page}
@@ -319,7 +292,6 @@ export const TeachersListScreen = ({ navigation }) => {
               onPageChange={handlePageChange}
             />
           }
-
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons
@@ -328,9 +300,7 @@ export const TeachersListScreen = ({ navigation }) => {
                 color={colors.textMuted}
               />
 
-              <Text style={styles.emptyTitle}>
-                Nenhum docente encontrado
-              </Text>
+              <Text style={styles.emptyTitle}>Nenhum docente encontrado</Text>
             </View>
           }
         />
@@ -350,14 +320,12 @@ export const TeachersListScreen = ({ navigation }) => {
         }}
         loading={deleting}
       />
-
     </View>
   );
 };
 
 // ESTILOS
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     backgroundColor: colors.background
@@ -475,18 +443,6 @@ const styles = StyleSheet.create({
     color: colors.primary
   },
 
-  deptBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6
-  },
-
-  deptBadgeText: {
-    fontSize: 11,
-    color: colors.textSecondary
-  },
-
   cardActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -563,5 +519,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20
   }
-
 });
