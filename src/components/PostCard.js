@@ -3,6 +3,23 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
+// Pega o nome do autor em qualquer formato que o servidor devolver
+const getAuthorName = (post) => {
+  const author = post.autor || post.author || post.usuario || post.user;
+
+  if (typeof author === 'string' && author.trim()) {
+    return author;
+  }
+
+  return (
+    author?.nome ||
+    author?.name ||
+    post.autor_nome ||
+    post.author_name ||
+    'Autor desconhecido'
+  );
+};
+
 export const PostCard = ({ post, onPress, onEdit, onDelete, showAdminActions = false }) => {
   const formattedDate = post.createdAt
     ? new Date(post.createdAt).toLocaleDateString('pt-BR', {
@@ -13,6 +30,7 @@ export const PostCard = ({ post, onPress, onEdit, onDelete, showAdminActions = f
     : '';
 
   const commentsCount = post.comments ? post.comments.length : 0;
+  const authorName = getAuthorName(post);
 
   return (
     <TouchableOpacity
@@ -23,7 +41,7 @@ export const PostCard = ({ post, onPress, onEdit, onDelete, showAdminActions = f
       <View style={styles.headerRow}>
         <View style={styles.authorBadge}>
           <Ionicons name="person-circle-outline" size={16} color={colors.primary} />
-          <Text style={styles.authorText} numberOfLines={1}>{post.author}</Text>
+          <Text style={styles.authorText} numberOfLines={1}>{authorName}</Text>
         </View>
         {formattedDate ? (
           <Text style={styles.dateText}>{formattedDate}</Text>
@@ -101,7 +119,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 12
+    borderRadius: 12,
+    flexShrink: 1
   },
   authorText: {
     fontSize: 12,
@@ -111,7 +130,8 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 11,
-    color: colors.textMuted
+    color: colors.textMuted,
+    marginLeft: 8
   },
   title: {
     fontSize: 17,
