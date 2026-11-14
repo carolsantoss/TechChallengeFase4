@@ -1,5 +1,4 @@
-# Stage 1 - Build Expo Web
-FROM node:22-alpine AS build
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -9,15 +8,13 @@ RUN npm ci
 
 COPY . .
 
+# Gera o build Web do Expo
 RUN npx expo export --platform web
 
-# Stage 2 - Nginx
-FROM nginx:alpine
+# Instala um servidor HTTP para servir os arquivos estáticos
+RUN npm install -g serve
 
-COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 3000
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+# Inicia o servidor HTTP
+CMD ["serve", "-s", "dist", "-l", "3000"]
