@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: techchallenger-mobile
+  namespace: fiap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: techchallenger-mobile
+  template:
+    metadata:
+      labels:
+        app: techchallenger-mobile
+    spec:
+      containers:
+        - name: techchallenger-mobile
+          image: storagedon/techchallange-2026:mobile-v0.0.2
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: production
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: techchallenger-mobile
+  namespace: fiap
+  labels:
+    hostname: techchallenger.duckdns.org
+spec:
+  type: ClusterIP
+  selector:
+    app: techchallenger-mobile
+  ports:
+    - name: http
+      port: 3005
+      targetPort: 3000
+      protocol: TCP
