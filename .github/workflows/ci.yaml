@@ -61,5 +61,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          build-args: |
+            EXPO_PUBLIC_API_URL=https://techchallenger.duckdns.org
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/techchallange-2026:mobile-${{ steps.semver_tag.outputs.new_tag }}

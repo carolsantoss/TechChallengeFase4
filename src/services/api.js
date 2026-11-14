@@ -3,10 +3,15 @@ import { Platform } from 'react-native';
 
 const DEFAULT_PORT = '3000';
 const DEFAULT_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-const DEFAULT_URL = `http://${DEFAULT_HOST}:${DEFAULT_PORT}/api`;
+const DEFAULT_URL = Platform.OS === 'web'
+  ? (process.env.EXPO_PUBLIC_API_URL || `http://localhost:${DEFAULT_PORT}/api`)
+  : `http://${DEFAULT_HOST}:${DEFAULT_PORT}/api`;
 const API_URL_KEY = '@fiap_blog_api_url';
 
 export const getBaseUrl = async () => {
+  if (Platform.OS === 'web' && process.env.EXPO_PUBLIC_API_URL) {
+    return DEFAULT_URL;
+  }
   try {
     const custom = await AsyncStorage.getItem(API_URL_KEY);
     if (custom) return custom;

@@ -8,13 +8,13 @@ RUN npm ci
 
 COPY . .
 
-# Gera o build Web do Expo
+ARG EXPO_PUBLIC_API_URL
+ENV EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL
+
 RUN npx expo export --platform web
 
-# Instala um servidor HTTP para servir os arquivos estáticos
 RUN npm install -g serve
 
 EXPOSE 3000
 
-# Inicia o servidor HTTP
 CMD ["serve", "-s", "dist", "-l", "3000"]
