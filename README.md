@@ -294,13 +294,6 @@ Todas as chamadas passam por `request(endpoint, options)` em [`src/services/api.
 3. Escolha o perfil (**Docente** ou **Estudante**), informe e-mail e senha e toque em **Entrar**.
 4. O cabeçalho passa a mostrar o selo do perfil e o botão de sair.
 
-**Credenciais de teste** <!-- TODO equipe: confirmar contas válidas no back-end de produção -->
-
-| Perfil | E-mail | Senha |
-|---|---|---|
-| Docente | _preencher_ | _preencher_ |
-| Aluno | _preencher_ | _preencher_ |
-
 ### Como aluno
 
 - **Ler posts:** na aba Início, role a lista ou puxe para baixo para atualizar. Toque no card para abrir o post completo.
