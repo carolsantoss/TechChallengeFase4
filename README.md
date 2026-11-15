@@ -348,14 +348,3 @@ docker run -p 3000:3000 techchallenge-mobile
 - **Edição de post** não altera o autor (o campo não é enviado no `PUT`).
 
 ---
-
-## 10. Equipe
-
-<!-- TODO equipe: preencher nome completo e RM -->
-
-| Nome | RM | GitHub |
-|---|---|---|
-| _preencher_ | _preencher_ | [@carolsantoss](https://github.com/carolsantoss) |
-| _preencher_ | _preencher_ | [@aamekst](https://github.com/aamekst) |
-| _preencher_ | _preencher_ | [@Don616](https://github.com/Don616) |
-| _preencher_ | _preencher_ | _preencher_ |
