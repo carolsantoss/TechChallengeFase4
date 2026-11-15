@@ -1,0 +1,82 @@
+[
+  {
+    "id": "1",
+    "name": "Carlos Eduardo",
+    "email": "carlos.eduardo@fiap.com.br",
+    "department": "Engenharia de Software",
+    "title": "Doutor",
+    "role": "docente"
+  },
+  {
+    "id": "2",
+    "name": "Mariana Costa",
+    "email": "mariana.costa@fiap.com.br",
+    "department": "Arquitetura de Sistemas",
+    "title": "Mestre",
+    "role": "docente"
+  },
+  {
+    "id": "3",
+    "name": "Roberto Alencar",
+    "email": "roberto.alencar@fiap.com.br",
+    "department": "Segurança da Informação",
+    "title": "Especialista",
+    "role": "docente"
+  },
+  {
+    "id": "4",
+    "name": "Patrícia Mendes",
+    "email": "patricia.mendes@fiap.com.br",
+    "department": "Inteligência Artificial",
+    "title": "Doutora",
+    "role": "docente"
+  },
+  {
+    "id": "5",
+    "name": "Fernando Rocha",
+    "email": "fernando.rocha@fiap.com.br",
+    "department": "Banco de Dados",
+    "title": "Mestre",
+    "role": "docente"
+  },
+  {
+    "id": "1",
+    "name": "Ana Clara Lima",
+    "email": "ana.clara@aluno.fiap.com.br",
+    "registrationNumber": "RM98701",
+    "course": "Análise e Desenvolvimento de Sistemas",
+    "role": "aluno"
+  },
+  {
+    "id": "2",
+    "name": "Lucas Silva",
+    "email": "lucas.silva@aluno.fiap.com.br",
+    "registrationNumber": "RM98702",
+    "course": "Engenharia de Software",
+    "role": "aluno"
+  },
+  {
+    "id": "3",
+    "name": "Gabriel Santos",
+    "email": "gabriel.santos@aluno.fiap.com.br",
+    "registrationNumber": "RM98703",
+    "course": "Sistemas de Informação",
+    "role": "aluno"
+  },
+  {
+    "id": "4",
+    "name": "Beatriz Martins",
+    "email": "beatriz.martins@aluno.fiap.com.br",
+    "registrationNumber": "RM98704",
+    "course": "Inteligência Artificial",
+    "role": "aluno"
+  },
+  {
+    "id": "5",
+    "name": "Thiago Oliveira",
+    "email": "thiago.oliveira@aluno.fiap.com.br",
+    "registrationNumber": "RM98705",
+    "course": "Ciência da Computação",
+    "role": "aluno"
+  }
+]

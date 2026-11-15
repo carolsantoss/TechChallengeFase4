@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -18,11 +19,16 @@ import { AdminPostsScreen } from '../screens/AdminPostsScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { colors } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
+  const { user } = useAuth();
+
+  const isLoggedIn = !!user;
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -60,7 +66,13 @@ const MainTabs = () => {
             iconName = focused ? 'settings' : 'settings-outline';
           }
 
-          return <Ionicons name={iconName} size={size || 22} color={color} />;
+          return (
+            <Ionicons
+              name={iconName}
+              size={size || 22}
+              color={color}
+            />
+          );
         }
       })}
     >
@@ -69,26 +81,32 @@ const MainTabs = () => {
         component={HomeScreen}
         options={{ tabBarLabel: 'Início' }}
       />
+
       <Tab.Screen
         name="AdminTab"
         component={AdminPostsScreen}
         options={{ tabBarLabel: 'Admin' }}
       />
+
       <Tab.Screen
         name="TeachersTab"
         component={TeachersListScreen}
         options={{ tabBarLabel: 'Docentes' }}
       />
+
       <Tab.Screen
         name="StudentsTab"
         component={StudentsListScreen}
         options={{ tabBarLabel: 'Alunos' }}
       />
-      <Tab.Screen
-        name="SettingsTab"
-        component={SettingsScreen}
-        options={{ tabBarLabel: 'Ajustes' }}
-      />
+
+      {isLoggedIn && (
+        <Tab.Screen
+          name="SettingsTab"
+          component={SettingsScreen}
+          options={{ tabBarLabel: 'Ajustes' }}
+        />
+      )}
     </Tab.Navigator>
   );
 };
@@ -101,15 +119,50 @@ export const AppNavigator = () => {
         animation: 'slide_from_right'
       }}
     >
-      <Stack.Screen name="MainTabs" component={MainTabs} />
-      <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-      <Stack.Screen name="CreatePost" component={CreatePostScreen} />
-      <Stack.Screen name="EditPost" component={EditPostScreen} />
-      <Stack.Screen name="CreateTeacher" component={CreateTeacherScreen} />
-      <Stack.Screen name="EditTeacher" component={EditTeacherScreen} />
-      <Stack.Screen name="CreateStudent" component={CreateStudentScreen} />
-      <Stack.Screen name="EditStudent" component={EditStudentScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabs}
+      />
+
+      <Stack.Screen
+        name="PostDetail"
+        component={PostDetailScreen}
+      />
+
+      <Stack.Screen
+        name="CreatePost"
+        component={CreatePostScreen}
+      />
+
+      <Stack.Screen
+        name="EditPost"
+        component={EditPostScreen}
+      />
+
+      <Stack.Screen
+        name="CreateTeacher"
+        component={CreateTeacherScreen}
+      />
+
+      <Stack.Screen
+        name="EditTeacher"
+        component={EditTeacherScreen}
+      />
+
+      <Stack.Screen
+        name="CreateStudent"
+        component={CreateStudentScreen}
+      />
+
+      <Stack.Screen
+        name="EditStudent"
+        component={EditStudentScreen}
+      />
+
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+      />
     </Stack.Navigator>
   );
 };

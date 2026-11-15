@@ -34,7 +34,7 @@ export const EditStudentScreen = ({ route, navigation }) => {
       try {
         setLoading(true);
         const data = await api.getStudentById(id);
-        setName(data.name || '');
+        setName(data.nome || data.name || '');
         setEmail(data.email || '');
         setRegistrationNumber(data.registrationNumber || '');
         setCourse(data.course || '');
@@ -61,10 +61,8 @@ export const EditStudentScreen = ({ route, navigation }) => {
     try {
       setSaving(true);
       await api.updateStudent(id, {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        registrationNumber: registrationNumber.trim(),
-        course: course.trim()
+        nome: name.trim(),
+        email: email.trim().toLowerCase()
       });
 
       showFeedback('Sucesso', 'Dados do estudante atualizados com sucesso!', () => {
@@ -142,29 +140,6 @@ export const EditStudentScreen = ({ route, navigation }) => {
                 placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Matrícula (RM)</Text>
-              <TextInput
-                style={styles.input}
-                value={registrationNumber}
-                onChangeText={setRegistrationNumber}
-                placeholder="Matrícula"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="characters"
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Curso / Graduação</Text>
-              <TextInput
-                style={styles.input}
-                value={course}
-                onChangeText={setCourse}
-                placeholder="Curso"
-                placeholderTextColor={colors.textMuted}
               />
             </View>
 

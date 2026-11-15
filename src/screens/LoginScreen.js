@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   View,
@@ -27,6 +28,7 @@ export const LoginScreen = ({ navigation }) => {
 
   const handleSelectRole = (selectedRole) => {
     setRole(selectedRole);
+
     if (selectedRole === 'teacher') {
       setEmail('carlos.eduardo@fiap.com.br');
     } else {
@@ -42,8 +44,14 @@ export const LoginScreen = ({ navigation }) => {
       return;
     }
 
+    if (!password.trim()) {
+      showFeedback('Validação', 'Por favor, digite sua senha.');
+      return;
+    }
+
     try {
       setSubmitting(true);
+
       const res = await login(email.trim(), password, role);
 
       if (res && res.success) {
@@ -53,8 +61,32 @@ export const LoginScreen = ({ navigation }) => {
         });
         return;
       }
+
+      showFeedback(
+        'Dados incorretos',
+        'E-mail ou senha incorretos. Verifique seus dados e tente novamente.'
+      );
+
     } catch (err) {
-      showFeedback('Erro', err.message || 'Falha ao autenticar.');
+      const status = err?.response?.status || err?.status;
+      const message = String(err?.message || '').toLowerCase();
+
+      if (
+        status === 401 ||
+        message.includes('401') ||
+        message.includes('unauthorized')
+      ) {
+        showFeedback(
+          'Dados incorretos',
+          'E-mail ou senha incorretos. Verifique seus dados e tente novamente.'
+        );
+      } else {
+        showFeedback(
+          'Erro',
+          'Não foi possível realizar o login. Verifique sua conexão e tente novamente.'
+        );
+      }
+
     } finally {
       setSubmitting(false);
     }
@@ -76,14 +108,19 @@ export const LoginScreen = ({ navigation }) => {
             <View style={styles.logoCircle}>
               <Ionicons name="book" size={32} color={colors.primary} />
             </View>
+
             <Text style={styles.title}>Blog Educacional</Text>
+
             <Text style={styles.subtitle}>
               Selecione seu perfil e faça login para acessar a plataforma
             </Text>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionLabel}>Selecione seu perfil de acesso:</Text>
+            <Text style={styles.sectionLabel}>
+              Selecione seu perfil de acesso:
+            </Text>
+
             <View style={styles.roleToggle}>
               <TouchableOpacity
                 style={[
@@ -97,6 +134,7 @@ export const LoginScreen = ({ navigation }) => {
                   size={18}
                   color={role === 'teacher' ? '#FFFFFF' : colors.textSecondary}
                 />
+
                 <Text
                   style={[
                     styles.roleOptionText,
@@ -119,6 +157,7 @@ export const LoginScreen = ({ navigation }) => {
                   size={18}
                   color={role === 'student' ? '#FFFFFF' : colors.textSecondary}
                 />
+
                 <Text
                   style={[
                     styles.roleOptionText,
@@ -132,8 +171,15 @@ export const LoginScreen = ({ navigation }) => {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>E-mail Institucional</Text>
+
               <View style={styles.inputWrapper}>
-                <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color={colors.textMuted}
+                  style={styles.inputIcon}
+                />
+
                 <TextInput
                   style={styles.input}
                   value={email}
@@ -148,8 +194,15 @@ export const LoginScreen = ({ navigation }) => {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Senha</Text>
+
               <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={18}
+                  color={colors.textMuted}
+                  style={styles.inputIcon}
+                />
+
                 <TextInput
                   style={styles.input}
                   value={password}
@@ -167,6 +220,7 @@ export const LoginScreen = ({ navigation }) => {
                 size={18}
                 color={role === 'teacher' ? colors.teacherText : colors.studentText}
               />
+
               <Text style={styles.roleInfoText}>
                 {role === 'teacher'
                   ? 'Permissões de Docente: Criar, editar e excluir postagens, gerenciar professores e alunos.'
@@ -183,8 +237,15 @@ export const LoginScreen = ({ navigation }) => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <Ionicons name="log-in-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.loginBtnText}>Entrar no Sistema</Text>
+                  <Ionicons
+                    name="log-in-outline"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+
+                  <Text style={styles.loginBtnText}>
+                    Entrar no Sistema
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
