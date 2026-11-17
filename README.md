@@ -2,7 +2,7 @@
 
 Aplicativo mobile em **React Native (Expo)** para a plataforma de blogging educacional da Pós Tech FIAP – Full Stack Development. O app consome a API REST desenvolvida nas fases anteriores e permite que **docentes** publiquem e administrem conteúdo e usuários, enquanto **alunos** leem as publicações.
 
-> Documento complementar com arquitetura do sistema completo e o relato de experiências da equipe: [docs/DOCUMENTACAO.md](docs/DOCUMENTACAO.md).
+> Documento complementar com arquitetura do sistema completo e o relato de experiências da equipe: [docs/DOCUMENTACAO.md](docs/DOCUMENTACAO.md).<br>
 > LINK: https://techchallenger.duckdns.org/mobile/
 
 ---
