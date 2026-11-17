@@ -15,7 +15,6 @@ import { Header } from '../components/Header';
 import { SearchBar } from '../components/SearchBar';
 import { PostCard } from '../components/PostCard';
 import { api } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
 // Remove acentos e padroniza o texto para comparação
@@ -57,8 +56,6 @@ const getPostSearchText = (post) => {
 };
 
 export const HomeScreen = ({ navigation }) => {
-  const { isTeacher } = useAuth();
-
   const [posts, setPosts] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -206,16 +203,6 @@ export const HomeScreen = ({ navigation }) => {
           }
         />
       )}
-
-      {isTeacher && (
-        <TouchableOpacity
-          style={styles.fab}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('CreatePost')}
-        >
-          <Ionicons name="add" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-      )}
     </View>
   );
 };
@@ -280,21 +267,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 4
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8
   }
 });
