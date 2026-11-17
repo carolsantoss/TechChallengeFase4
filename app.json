@@ -23,6 +23,9 @@
     "plugins": [
       "expo-status-bar",
       "expo-font"
-    ]
+    ],
+    "experiments": {
+      "baseUrl": "/mobile"
+    }
   }
 }

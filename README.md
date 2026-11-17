@@ -315,7 +315,8 @@ Todas as chamadas passam por `request(endpoint, options)` em [`src/services/api.
 
 O app também é publicado como site estático. Os arquivos ficam na branch `main`:
 
-- **`Dockerfile`**: imagem `node:22-alpine` que roda `npx expo export --platform web` e serve a pasta `dist` com `serve` na porta 3000. Aceita o build-arg `EXPO_PUBLIC_API_URL`.
+- **`Dockerfile`**: imagem `node:22-alpine` que roda `npx expo export --platform web`, move o `dist` para `www/mobile` e serve a pasta `www` com `serve` na porta 3000. Aceita o build-arg `EXPO_PUBLIC_API_URL`.
+- **Subcaminho `/mobile`**: o site é publicado em `https://techchallenger.duckdns.org/mobile/`. O `app.json` define `experiments.baseUrl: "/mobile"`, então o HTML carrega os arquivos de `/mobile/_expo/...`. Como o proxy repassa o caminho com o prefixo, o container também serve tudo sob `/mobile`. O `serve.json` devolve o `index.html` para qualquer rota em `/mobile/**` e redireciona `/` para `/mobile/`.
 - **`.github/workflows/ci.yaml`**: a cada push na `main`, instala dependências, roda testes (se houver), cria tag semântica (`anothrNick/github-tag-action`), gera a imagem e publica no Docker Hub como `<usuario>/techchallange-2026:mobile-<tag>`. Usa os secrets `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` e `JWT_SECRET`.
 - **`k8s/deploy.yaml`**: `Deployment` (1 réplica) e `Service` ClusterIP no namespace `fiap`, expondo a porta 3005 → 3000.
 
